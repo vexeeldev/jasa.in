@@ -1,0 +1,178 @@
+CREATE TABLE USERS (
+    user_id       NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    username      VARCHAR2(50)  NOT NULL UNIQUE,
+    email         VARCHAR2(100) NOT NULL UNIQUE,
+    password_hash VARCHAR2(255) NOT NULL,
+    full_name     VARCHAR2(100),
+    phone         VARCHAR2(20),
+    avatar_url    VARCHAR2(255),
+    is_freelancer CHAR(1)   DEFAULT '0' NOT NULL,
+    is_admin      CHAR(1)   DEFAULT '0' NOT NULL,
+    is_verified   CHAR(1)   DEFAULT '0' NOT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_is_freelancer CHECK (is_freelancer IN ('0','1')),
+    CONSTRAINT chk_is_admin      CHECK (is_admin      IN ('0','1')),
+    CONSTRAINT chk_is_verified   CHECK (is_verified   IN ('0','1'))
+);
+
+CREATE TABLE FREELANCER_PROFILES (
+    profile_id       NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id          NUMBER       NOT NULL UNIQUE,
+    bio              CLOB,
+    rating_avg       NUMBER(3,2)  DEFAULT 0,
+    total_orders     NUMBER       DEFAULT 0,
+    freelancer_level VARCHAR2(20) DEFAULT 'new',
+    joined_at        TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_fp_user   FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE,
+    CONSTRAINT chk_rating   CHECK (rating_avg BETWEEN 0 AND 5),
+    CONSTRAINT chk_fp_level CHECK (freelancer_level IN ('new','rising','top','pro'))
+);
+
+CREATE TABLE SKILLS (
+    skill_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name     VARCHAR2(100) NOT NULL UNIQUE,
+    category VARCHAR2(100)
+);
+
+CREATE TABLE FREELANCER_SKILLS (
+    freelancer_id NUMBER NOT NULL,
+    skill_id      NUMBER NOT NULL,
+    CONSTRAINT pk_freelancer_skills PRIMARY KEY (freelancer_id, skill_id),
+    CONSTRAINT fk_fs_freelancer FOREIGN KEY (freelancer_id) REFERENCES FREELANCER_PROFILES(profile_id) ON DELETE CASCADE,
+    CONSTRAINT fk_fs_skill      FOREIGN KEY (skill_id)      REFERENCES SKILLS(skill_id)               ON DELETE CASCADE
+);
+
+CREATE TABLE CATEGORIES (
+    category_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    parent_id   NUMBER,
+    name        VARCHAR2(100) NOT NULL,
+    slug        VARCHAR2(100) NOT NULL UNIQUE,
+    icon_url    VARCHAR2(255),
+    CONSTRAINT fk_cat_parent FOREIGN KEY (parent_id) REFERENCES CATEGORIES(category_id) ON DELETE SET NULL
+);
+
+CREATE TABLE SERVICES (
+    service_id    NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    freelancer_id NUMBER        NOT NULL,
+    category_id   NUMBER        NOT NULL,
+    title         VARCHAR2(200) NOT NULL,
+    description   CLOB,
+    thumbnail_url VARCHAR2(255),
+    status        VARCHAR2(10)  DEFAULT 'active' NOT NULL,
+    total_orders  NUMBER        DEFAULT 0,
+    created_at    TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_svc_freelancer FOREIGN KEY (freelancer_id) REFERENCES FREELANCER_PROFILES(profile_id) ON DELETE CASCADE,
+    CONSTRAINT fk_svc_category   FOREIGN KEY (category_id)   REFERENCES CATEGORIES(category_id)         ON DELETE SET NULL,
+    CONSTRAINT chk_svc_status    CHECK (status IN ('active','inactive','banned'))
+);
+
+CREATE TABLE SERVICE_PACKAGES (
+    package_id    NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    service_id    NUMBER       NOT NULL,
+    package_name  VARCHAR2(20) NOT NULL,
+    description   CLOB,
+    price         NUMBER(12,2) NOT NULL,
+    delivery_days NUMBER       NOT NULL,
+    revisions     NUMBER       DEFAULT 1,
+    CONSTRAINT fk_pkg_service   FOREIGN KEY (service_id) REFERENCES SERVICES(service_id) ON DELETE CASCADE,
+    CONSTRAINT chk_pkg_name     CHECK (package_name  IN ('basic','standard','premium')),
+    CONSTRAINT chk_pkg_price    CHECK (price         > 0),
+    CONSTRAINT chk_pkg_delivery CHECK (delivery_days > 0)
+);
+
+CREATE TABLE PORTFOLIOS (
+    portfolio_id  NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    freelancer_id NUMBER        NOT NULL,
+    title         VARCHAR2(200) NOT NULL,
+    description   CLOB,
+    image_url     VARCHAR2(255),
+    project_url   VARCHAR2(255),
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_port_freelancer FOREIGN KEY (freelancer_id) REFERENCES FREELANCER_PROFILES(profile_id) ON DELETE CASCADE
+);
+
+CREATE TABLE ORDERS (
+    order_id      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    package_id    NUMBER       NOT NULL,
+    client_id     NUMBER       NOT NULL,
+    freelancer_id NUMBER       NOT NULL,
+    status        VARCHAR2(20) DEFAULT 'pending' NOT NULL,
+    total_price   NUMBER(12,2) NOT NULL,
+    deadline      DATE,
+    requirements  CLOB,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at  TIMESTAMP,
+    CONSTRAINT fk_ord_package    FOREIGN KEY (package_id)    REFERENCES SERVICE_PACKAGES(package_id)    ON DELETE SET NULL,
+    CONSTRAINT fk_ord_client     FOREIGN KEY (client_id)     REFERENCES USERS(user_id)                  ON DELETE CASCADE,
+    CONSTRAINT fk_ord_freelancer FOREIGN KEY (freelancer_id) REFERENCES FREELANCER_PROFILES(profile_id) ON DELETE CASCADE,
+    CONSTRAINT chk_ord_status    CHECK (status IN ('pending','in_progress','revision','completed','cancelled'))
+);
+
+CREATE TABLE ORDER_REVISIONS (
+    revision_id    NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_id       NUMBER NOT NULL,
+    description    CLOB,
+    attachment_url VARCHAR2(255),
+    requested_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_rev_order FOREIGN KEY (order_id) REFERENCES ORDERS(order_id) ON DELETE CASCADE
+);
+
+CREATE TABLE REVIEWS (
+    review_id      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_id       NUMBER    NOT NULL UNIQUE,
+    reviewer_id    NUMBER    NOT NULL,
+    rating         NUMBER(1) NOT NULL,
+    review_comment CLOB,
+    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_rvw_order     FOREIGN KEY (order_id)    REFERENCES ORDERS(order_id) ON DELETE CASCADE,
+    CONSTRAINT fk_rvw_reviewer  FOREIGN KEY (reviewer_id) REFERENCES USERS(user_id)   ON DELETE CASCADE,
+    CONSTRAINT chk_rating_range CHECK (rating BETWEEN 1 AND 5)
+);
+
+CREATE TABLE PAYMENTS (
+    payment_id      NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    order_id        NUMBER       NOT NULL UNIQUE,
+    amount          NUMBER(12,2) NOT NULL,
+    method          VARCHAR2(50),
+    status          VARCHAR2(20) DEFAULT 'pending' NOT NULL,
+    transaction_ref VARCHAR2(100),
+    paid_at         TIMESTAMP,
+    CONSTRAINT fk_pay_order   FOREIGN KEY (order_id) REFERENCES ORDERS(order_id) ON DELETE CASCADE,
+    CONSTRAINT chk_pay_status CHECK (status IN ('pending','success','failed','refunded'))
+);
+
+CREATE TABLE MESSAGES (
+    message_id  NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    sender_id   NUMBER    NOT NULL,
+    receiver_id NUMBER    NOT NULL,
+    order_id    NUMBER,
+    content     CLOB      NOT NULL,
+    is_read     CHAR(1)   DEFAULT '0' NOT NULL,
+    sent_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_msg_sender   FOREIGN KEY (sender_id)   REFERENCES USERS(user_id)   ON DELETE CASCADE,
+    CONSTRAINT fk_msg_receiver FOREIGN KEY (receiver_id) REFERENCES USERS(user_id)   ON DELETE CASCADE,
+    CONSTRAINT fk_msg_order    FOREIGN KEY (order_id)    REFERENCES ORDERS(order_id) ON DELETE SET NULL,
+    CONSTRAINT chk_msg_read    CHECK (is_read IN ('0','1'))
+);
+
+CREATE TABLE NOTIFICATIONS (
+    notif_id   NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id    NUMBER        NOT NULL,
+    type       VARCHAR2(50),
+    title      VARCHAR2(200),
+    body       CLOB,
+    is_read    CHAR(1)   DEFAULT '0' NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notif_user  FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE,
+    CONSTRAINT chk_notif_read CHECK (is_read IN ('0','1'))
+);
+
+CREATE INDEX idx_services_freelancer ON SERVICES(freelancer_id);
+CREATE INDEX idx_services_category   ON SERVICES(category_id);
+CREATE INDEX idx_orders_client       ON ORDERS(client_id);
+CREATE INDEX idx_orders_freelancer   ON ORDERS(freelancer_id);
+CREATE INDEX idx_orders_status       ON ORDERS(status);
+CREATE INDEX idx_messages_sender     ON MESSAGES(sender_id);
+CREATE INDEX idx_messages_receiver   ON MESSAGES(receiver_id);
+CREATE INDEX idx_notifications_user  ON NOTIFICATIONS(user_id);
+

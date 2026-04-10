@@ -3,7 +3,7 @@ const oracledb = require('oracledb');
 const dbConfig = {
   user: 'C##jasa',
   password: 'jasa123',
-  connectString: 'localhost:1521/4c71dec254973f59e0631601a8c0acf7',
+  connectString: 'localhost:1521/orcl',
   poolMin: 1,
   poolMax: 5,
   poolIncrement: 1

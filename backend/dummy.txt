@@ -1,169 +1,249 @@
--- ======================================================
--- INSERT 10 USERS (clients, freelancers, and admin)
--- ======================================================
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('johndoe', 'john@example.com', 'hash123', 'John Doe', '081234567890', 'avatar1.jpg', 'klien', CURRENT_TIMESTAMP, 500000);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('janesmith', 'jane@example.com', 'hash456', 'Jane Smith', '081298765432', 'avatar2.jpg', 'freelancer', CURRENT_TIMESTAMP, 1500000);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('budiart', 'budi@example.com', 'hash789', 'Budi Hartono', '081212345678', 'avatar3.jpg', 'freelancer', CURRENT_TIMESTAMP, 2000000);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('siti_nur', 'siti@example.com', 'hash101', 'Siti Nurhaliza', '081234567899', 'avatar4.jpg', 'klien', CURRENT_TIMESTAMP, 300000);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('admin_eko', 'eko@example.com', 'hash202', 'Eko Prasetyo', '081276543210', 'avatar5.jpg', 'admin', CURRENT_TIMESTAMP, 0);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('agusdev', 'agus@example.com', 'hash303', 'Agus Setiawan', '081345678901', 'avatar6.jpg', 'freelancer', CURRENT_TIMESTAMP, 750000);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('rina_creative', 'rina@example.com', 'hash404', 'Rina Wati', '081456789012', 'avatar7.jpg', 'freelancer', CURRENT_TIMESTAMP, 1200000);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('david_klien', 'david@example.com', 'hash505', 'David Wijaya', '081567890123', 'avatar8.jpg', 'klien', CURRENT_TIMESTAMP, 800000);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('lina_freelance', 'lina@example.com', 'hash606', 'Lina Susanti', '081678901234', 'avatar9.jpg', 'freelancer', CURRENT_TIMESTAMP, 2500000);
-INSERT INTO USERS (username, email, password_hash, full_name, phone, avatar_url, role, created_at, balance) VALUES ('michael_b', 'michael@example.com', 'hash707', 'Michael Budiman', '081789012345', 'avatar10.jpg', 'klien', CURRENT_TIMESTAMP, 450000);
 
--- ======================================================
--- FREELANCER_PROFILES (user_id: janesmith(2), budiart(3), agusdev(6), rina_creative(7), lina_freelance(9))
--- ======================================================
-INSERT INTO FREELANCER_PROFILES (user_id, bio, rating_avg, total_orders, freelancer_level, joined_at) VALUES (2, 'Expert graphic designer with 5 years experience', 4.8, 15, 'top', CURRENT_TIMESTAMP);
-INSERT INTO FREELANCER_PROFILES (user_id, bio, rating_avg, total_orders, freelancer_level, joined_at) VALUES (3, 'Fullstack web developer, React & Laravel specialist', 4.9, 22, 'pro', CURRENT_TIMESTAMP);
-INSERT INTO FREELANCER_PROFILES (user_id, bio, rating_avg, total_orders, freelancer_level, joined_at) VALUES (6, 'Mobile app developer for Android & iOS', 4.5, 8, 'rising', CURRENT_TIMESTAMP);
-INSERT INTO FREELANCER_PROFILES (user_id, bio, rating_avg, total_orders, freelancer_level, joined_at) VALUES (7, 'Creative content writer and SEO expert', 4.7, 12, 'top', CURRENT_TIMESTAMP);
-INSERT INTO FREELANCER_PROFILES (user_id, bio, rating_avg, total_orders, freelancer_level, joined_at) VALUES (9, 'Social media marketing specialist', 4.6, 10, 'rising', CURRENT_TIMESTAMP);
+-- =====================================================
+-- 1. USERS (10 USERS REALISTIC)
+-- =====================================================
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance)
+VALUES ('budi','budi@mail.com','h1','Budi Santoso','0811111111',NULL,'klien',500000);
 
--- ======================================================
--- SKILLS
--- ======================================================
-INSERT INTO SKILLS (name, category) VALUES ('Graphic Design', 'Design');
-INSERT INTO SKILLS (name, category) VALUES ('Web Development', 'Programming');
-INSERT INTO SKILLS (name, category) VALUES ('Mobile Development', 'Programming');
-INSERT INTO SKILLS (name, category) VALUES ('Copywriting', 'Writing');
-INSERT INTO SKILLS (name, category) VALUES ('SEO', 'Marketing');
-INSERT INTO SKILLS (name, category) VALUES ('Social Media Management', 'Marketing');
-INSERT INTO SKILLS (name, category) VALUES ('Illustration', 'Design');
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('sari','sari@mail.com','h2','Sari Wulandari','0811111112',NULL,'klien',300000);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('andi','andi@mail.com','h3','Andi Pratama','0811111113',NULL,'klien',450000);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('lisa','lisa@mail.com','h4','Lisa Amelia','0811111114',NULL,'klien',600000);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('rizky','rizky@mail.com','h5','Rizky Hidayat','0811111115',NULL,'klien',700000);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('tono','tono@mail.com','h6','Tono Setiawan','0811111116',NULL,'klien',250000);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('dea','dea@mail.com','h7','Dea Lestari','0811111117',NULL,'klien',350000);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('reza','reza@mail.com','h8','Reza Kurniawan','0811111118',NULL,'klien',420000);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES (NULL,'dev','dev@mail.com','h9','Dewa Dev','0821111111',NULL,'freelancer',0);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES (NULL,'design','design@mail.com','h10','Nina Design','0821111112',NULL,'freelancer',0);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('market','market@mail.com','h11','Agus Marketing','0821111113',NULL,'freelancer',0);
+INSERT INTO USERS (username,email,password_hash,full_name,phone,avatar_url,role,balance) VALUES ('admin','admin@mail.com','h12','Admin System','0899999999',NULL,'admin',0);
 
--- ======================================================
--- FREELANCER_SKILLS (freelancer_id = profile_id from FREELANCER_PROFILES)
--- profile_id: 1(janesmith),2(budiart),3(agusdev),4(rina),5(lina)
--- ======================================================
-INSERT INTO FREELANCER_SKILLS (freelancer_id, skill_id) VALUES (1, 1);
-INSERT INTO FREELANCER_SKILLS (freelancer_id, skill_id) VALUES (1, 7);
-INSERT INTO FREELANCER_SKILLS (freelancer_id, skill_id) VALUES (2, 2);
-INSERT INTO FREELANCER_SKILLS (freelancer_id, skill_id) VALUES (3, 3);
-INSERT INTO FREELANCER_SKILLS (freelancer_id, skill_id) VALUES (4, 4);
-INSERT INTO FREELANCER_SKILLS (freelancer_id, skill_id) VALUES (4, 5);
-INSERT INTO FREELANCER_SKILLS (freelancer_id, skill_id) VALUES (5, 5);
-INSERT INTO FREELANCER_SKILLS (freelancer_id, skill_id) VALUES (5, 6);
 
--- ======================================================
--- CATEGORIES (with parent-child)
--- ======================================================
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (NULL, 'Design', 'design', 'icon-design.png');
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (1, 'Logo Design', 'logo-design', 'icon-logo.png');
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (1, 'Social Media Design', 'social-media-design', 'icon-socmed.png');
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (NULL, 'Programming', 'programming', 'icon-code.png');
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (4, 'Website Development', 'web-dev', 'icon-web.png');
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (4, 'Mobile App', 'mobile-app', 'icon-mobile.png');
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (NULL, 'Marketing', 'marketing', 'icon-marketing.png');
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (7, 'SEO Service', 'seo-service', 'icon-seo.png');
-INSERT INTO CATEGORIES (parent_id, name, slug, icon_url) VALUES (7, 'Social Media Marketing', 'smm', 'icon-smm.png');
+-- =====================================================
+-- 2. FREELANCER PROFILES
+-- =====================================================
+INSERT INTO FREELANCER_PROFILES (user_id,bio,rating_avg,total_orders,freelancer_level)
+VALUES (9,'Fullstack Web Developer',4.9,50,'pro');
 
--- ======================================================
--- SERVICES (freelancer_id = profile_id from FREELANCER_PROFILES)
--- ======================================================
-INSERT INTO SERVICES (freelancer_id, category_id, title, description, thumbnail_url, status, total_orders, created_at) VALUES (1, 2, 'Professional Logo Design', 'Unique and creative logo for your brand', 'logo-thumb.jpg', 'active', 8, CURRENT_TIMESTAMP);
-INSERT INTO SERVICES (freelancer_id, category_id, title, description, thumbnail_url, status, total_orders, created_at) VALUES (2, 5, 'Fullstack Website Development', 'Complete website with React & Laravel', 'web-thumb.jpg', 'active', 12, CURRENT_TIMESTAMP);
-INSERT INTO SERVICES (freelancer_id, category_id, title, description, thumbnail_url, status, total_orders, created_at) VALUES (3, 6, 'Mobile App Development', 'Flutter & React Native expert', 'mobile-thumb.jpg', 'active', 5, CURRENT_TIMESTAMP);
-INSERT INTO SERVICES (freelancer_id, category_id, title, description, thumbnail_url, status, total_orders, created_at) VALUES (4, 8, 'SEO Optimization', 'Boost your website ranking', 'seo-thumb.jpg', 'active', 7, CURRENT_TIMESTAMP);
-INSERT INTO SERVICES (freelancer_id, category_id, title, description, thumbnail_url, status, total_orders, created_at) VALUES (5, 9, 'Social Media Management', 'Manage your social media accounts', 'smm-thumb.jpg', 'active', 4, CURRENT_TIMESTAMP);
+INSERT INTO FREELANCER_PROFILES (user_id,bio,rating_avg,total_orders,freelancer_level)
+VALUES (10,'UI/UX Designer',4.8,35,'pro');
 
--- ======================================================
--- SERVICE_PACKAGES
--- ======================================================
--- Service 1: Logo Design
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (1, 'basic', 'Simple logo design, 2 concepts', 250000, 3, 1);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (1, 'standard', 'Standard logo + 3 concepts', 500000, 5, 2);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (1, 'premium', 'Premium logo + 5 concepts + brand guidelines', 1000000, 7, 3);
+INSERT INTO FREELANCER_PROFILES (user_id,bio,rating_avg,total_orders,freelancer_level)
+VALUES (11,'Digital Marketing Expert',4.7,60,'pro');
 
--- Service 2: Web Development
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (2, 'basic', 'Landing page (5 pages max)', 1500000, 10, 1);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (2, 'standard', 'Company profile website (10 pages)', 3500000, 20, 2);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (2, 'premium', 'E-commerce website full features', 7500000, 30, 3);
 
--- Service 3: Mobile App
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (3, 'basic', 'Simple app with 3 screens', 3000000, 14, 1);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (3, 'standard', 'Mid-level app with backend integration', 7000000, 25, 2);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (3, 'premium', 'Advanced app with full features', 15000000, 40, 3);
+-- =====================================================
+-- 3. SKILLS
+-- =====================================================
+INSERT INTO SKILLS ("NAME","CATEGORY") VALUES ('UI Design','Design');
+INSERT INTO SKILLS ("NAME","CATEGORY")  VALUES ('Backend Dev','IT');
+INSERT INTO SKILLS ("NAME","CATEGORY")  VALUES ('Frontend Dev','IT');
+INSERT INTO SKILLS ("NAME","CATEGORY") VALUES ('Marketing','Business');
+INSERT INTO SKILLS ("NAME","CATEGORY") VALUES ('SEO','Marketing');
 
--- Service 4: SEO
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (4, 'basic', 'On-page SEO for 10 keywords', 500000, 7, 1);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (4, 'standard', 'On-page + Off-page SEO', 1200000, 14, 2);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (4, 'premium', 'Complete SEO package + report', 2500000, 21, 3);
 
--- Service 5: Social Media Management
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (5, 'basic', 'Manage 2 platforms, 10 posts/month', 800000, 30, 2);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (5, 'standard', 'Manage 4 platforms, 20 posts/month + analytics', 1500000, 30, 3);
-INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions) VALUES (5, 'premium', 'Manage 6 platforms, unlimited posts + ads', 3000000, 30, 5);
+-- =====================================================
+-- 4. FREELANCER SKILLS
+-- =====================================================
+INSERT INTO FREELANCER_SKILLS ("FREELANCER_ID","SKILL_ID") VALUES (1,2);
+INSERT INTO FREELANCER_SKILLS ("FREELANCER_ID","SKILL_ID")  VALUES (1,3);
+INSERT INTO FREELANCER_SKILLS ("FREELANCER_ID","SKILL_ID") VALUES (2,1);
+INSERT INTO FREELANCER_SKILLS ("FREELANCER_ID","SKILL_ID") VALUES (3,4);
+INSERT INTO FREELANCER_SKILLS ("FREELANCER_ID","SKILL_ID") VALUES (3,5);
 
--- ======================================================
--- PORTFOLIOS
--- ======================================================
-INSERT INTO PORTFOLIOS (freelancer_id, title, description, image_url, project_url, created_at) VALUES (1, 'Modern Logo for Startup', 'A minimalist logo for a tech startup', 'portfolio1.jpg', 'https://behance.net/portfolio1', CURRENT_TIMESTAMP);
-INSERT INTO PORTFOLIOS (freelancer_id, title, description, image_url, project_url, created_at) VALUES (2, 'E-commerce Website', 'Full-featured online store', 'portfolio2.jpg', 'https://example-shop.com', CURRENT_TIMESTAMP);
-INSERT INTO PORTFOLIOS (freelancer_id, title, description, image_url, project_url, created_at) VALUES (3, 'Fitness App UI/UX', 'Mobile app for fitness tracking', 'portfolio3.jpg', NULL, CURRENT_TIMESTAMP);
-INSERT INTO PORTFOLIOS (freelancer_id, title, description, image_url, project_url, created_at) VALUES (4, 'SEO Case Study: Rank 1 on Google', 'How we improved traffic by 200%', 'portfolio4.jpg', 'https://seo-case-study.com', CURRENT_TIMESTAMP);
-INSERT INTO PORTFOLIOS (freelancer_id, title, description, image_url, project_url, created_at) VALUES (5, 'Instagram Growth Campaign', 'Grew followers from 1k to 10k', 'portfolio5.jpg', 'https://instagram.com/campaign', CURRENT_TIMESTAMP);
+-- =====================================================
+-- 5. CATEGORIES
+-- =====================================================
+INSERT INTO CATEGORIES (parent_id, name, slug, icon_url)
+VALUES (NULL, 'Design', 'design', NULL);
 
--- ======================================================
--- ORDERS (client_id from USERS with role klien: 1,4,8,10)
--- freelancer_id from FREELANCER_PROFILES
--- package_id from SERVICE_PACKAGES
--- ======================================================
-INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at) VALUES (2, 1, 1, 'completed', 500000, DATE '2025-01-20', 'Need modern and minimalist logo', CURRENT_TIMESTAMP - 30, CURRENT_TIMESTAMP - 10);
-INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at) VALUES (5, 4, 2, 'in_progress', 3500000, DATE '2025-03-15', 'Company profile for tech startup', CURRENT_TIMESTAMP - 5, NULL);
-INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at) VALUES (10, 8, 3, 'pending', 7000000, DATE '2025-04-01', 'Fitness tracking app', CURRENT_TIMESTAMP - 1, NULL);
-INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at) VALUES (13, 10, 4, 'revision', 1200000, DATE '2025-02-25', 'Need more backlinks strategy', CURRENT_TIMESTAMP - 10, NULL);
-INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at) VALUES (16, 1, 5, 'completed', 1500000, DATE '2025-02-10', 'Manage Instagram and TikTok', CURRENT_TIMESTAMP - 20, CURRENT_TIMESTAMP - 5);
+INSERT INTO CATEGORIES (parent_id, name, slug, icon_url)
+VALUES (NULL, 'Programming', 'programming', NULL);
 
--- ======================================================
--- ORDER_REVISIONS
--- ======================================================
-INSERT INTO ORDER_REVISIONS (order_id, description, attachment_url, requested_at) VALUES (4, 'Please add more backlinks and improve keyword research', 'revision1.pdf', CURRENT_TIMESTAMP - 3);
+INSERT INTO CATEGORIES (parent_id, name, slug, icon_url)
+VALUES (NULL, 'Marketing', 'marketing', NULL);
 
--- ======================================================
--- REVIEWS (order_id must be completed status)
--- ======================================================
-INSERT INTO REVIEWS (order_id, reviewer_id, rating, review_comment, created_at) VALUES (1, 1, 5, 'Excellent logo design! Very creative and fast delivery.', CURRENT_TIMESTAMP - 10);
-INSERT INTO REVIEWS (order_id, reviewer_id, rating, review_comment, created_at) VALUES (5, 1, 4, 'Good social media management, but response time could be better.', CURRENT_TIMESTAMP - 5);
 
--- ======================================================
--- PAYMENTS (matching completed orders)
--- ======================================================
-INSERT INTO PAYMENTS (order_id, amount, method, status, transaction_ref, paid_at) VALUES (1, 500000, 'Bank Transfer', 'success', 'TRX001', CURRENT_TIMESTAMP - 10);
-INSERT INTO PAYMENTS (order_id, amount, method, status, transaction_ref, paid_at) VALUES (5, 1500000, 'GoPay', 'success', 'TRX005', CURRENT_TIMESTAMP - 5);
-INSERT INTO PAYMENTS (order_id, amount, method, status, transaction_ref, paid_at) VALUES (2, 3500000, 'Bank Transfer', 'pending', 'TRX002', NULL);
+-- =====================================================
+-- 6. SERVICES
+-- =====================================================
+INSERT INTO SERVICES (freelancer_id, category_id, title, description, thumbnail_url, status, total_orders, created_at)
+VALUES (1, 2, 'Website Company Profile', 'Web modern responsive', NULL, 'active', 25, CURRENT_TIMESTAMP);
 
--- ======================================================
--- MESSAGES
--- ======================================================
-INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at) VALUES (1, 2, 1, 'Hi, can you send me the logo in vector format?', '1', CURRENT_TIMESTAMP - 15);
-INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at) VALUES (2, 1, 1, 'Sure, I will send the AI file right away', '1', CURRENT_TIMESTAMP - 14);
-INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at) VALUES (4, 3, 2, 'When will the website demo be ready?', '0', CURRENT_TIMESTAMP - 2);
-INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at) VALUES (10, 4, 4, 'Please check the revision request', '1', CURRENT_TIMESTAMP - 3);
-INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at) VALUES (1, 5, 5, 'Great work on the social media campaign!', '1', CURRENT_TIMESTAMP - 5);
+INSERT INTO SERVICES (freelancer_id, category_id, title, description, thumbnail_url, status, total_orders, created_at)
+VALUES (2, 1, 'Logo Branding', 'Logo minimalis bisnis', NULL, 'active', 40, CURRENT_TIMESTAMP);
 
--- ======================================================
--- NOTIFICATIONS
--- ======================================================
-INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at) VALUES (1, 'order', 'Order Completed', 'Your order #1 has been completed', '1', CURRENT_TIMESTAMP - 10);
-INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at) VALUES (2, 'payment', 'Payment Received', 'You received payment for order #1', '1', CURRENT_TIMESTAMP - 10);
-INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at) VALUES (4, 'order', 'Order In Progress', 'Your order #2 is now in progress', '0', CURRENT_TIMESTAMP - 5);
-INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at) VALUES (10, 'revision', 'Revision Requested', 'Client requested revision for order #4', '0', CURRENT_TIMESTAMP - 3);
-INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at) VALUES (1, 'review', 'New Review', 'You received a 5-star review', '1', CURRENT_TIMESTAMP - 10);
+INSERT INTO SERVICES (freelancer_id, category_id, title, description, thumbnail_url, status, total_orders, created_at)
+VALUES (3, 3, 'Digital Ads Management', 'Kelola iklan ads', NULL, 'active', 70, CURRENT_TIMESTAMP);
 
--- ======================================================
--- TOPUPS
--- ======================================================
-INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at) VALUES (1, 200000, 'GoPay', 'success', 'TOPUP001', CURRENT_TIMESTAMP - 30, CURRENT_TIMESTAMP - 30);
-INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at) VALUES (4, 500000, 'Bank Transfer', 'success', 'TOPUP002', CURRENT_TIMESTAMP - 15, CURRENT_TIMESTAMP - 15);
-INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at) VALUES (8, 300000, 'GoPay', 'pending', 'TOPUP003', CURRENT_TIMESTAMP - 1, NULL);
-INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at) VALUES (10, 1000000, 'Bank Transfer', 'success', 'TOPUP004', CURRENT_TIMESTAMP - 7, CURRENT_TIMESTAMP - 7);
 
--- ======================================================
--- WITHDRAWALS (for freelancers)
--- ======================================================
-INSERT INTO WITHDRAWALS (freelancer_id, amount, bank_name, account_number, status, requested_at, processed_at) VALUES (1, 1000000, 'BCA', '1234567890', 'completed', CURRENT_TIMESTAMP - 20, CURRENT_TIMESTAMP - 18);
-INSERT INTO WITHDRAWALS (freelancer_id, amount, bank_name, account_number, status, requested_at, processed_at) VALUES (2, 2000000, 'Mandiri', '9876543210', 'processing', CURRENT_TIMESTAMP - 5, NULL);
-INSERT INTO WITHDRAWALS (freelancer_id, amount, bank_name, account_number, status, requested_at, processed_at) VALUES (3, 500000, 'BNI', '5555555555', 'pending', CURRENT_TIMESTAMP - 2, NULL);
-INSERT INTO WITHDRAWALS (freelancer_id, amount, bank_name, account_number, status, requested_at, processed_at) VALUES (4, 800000, 'BRI', '4444444444', 'completed', CURRENT_TIMESTAMP - 10, CURRENT_TIMESTAMP - 8);
-INSERT INTO WITHDRAWALS (freelancer_id, amount, bank_name, account_number, status, requested_at, processed_at) VALUES (5, 1200000, 'BCA', '3333333333', 'pending', CURRENT_TIMESTAMP - 1, NULL);
+-- =====================================================
+-- 7. SERVICE PACKAGES
+-- =====================================================
+INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions)
+VALUES (1, 'basic', 'Landing page simple', 150000, 3, 1);
+
+INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions)
+VALUES (1, 'pro', 'Website full fitur', 500000, 7, 3);
+
+INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions)
+VALUES (2, 'basic', 'Logo 1 konsep', 100000, 2, 1);
+
+INSERT INTO SERVICE_PACKAGES (service_id, package_name, description, price, delivery_days, revisions)
+VALUES (3, 'standard', 'Ads 7 hari', 300000, 5, 2);
+
+
+-- =====================================================
+-- 8. PORTFOLIOS
+-- =====================================================
+INSERT INTO PORTFOLIOS (freelancer_id, title, description, image_url, project_url, created_at)
+VALUES (1, 'Web Startup', 'Landing page modern', NULL, NULL, CURRENT_TIMESTAMP);
+
+INSERT INTO PORTFOLIOS (freelancer_id, title, description, image_url, project_url, created_at)
+VALUES (2, 'Logo Coffee', 'Brand coffee shop', NULL, NULL, CURRENT_TIMESTAMP);
+
+INSERT INTO PORTFOLIOS (freelancer_id, title, description, image_url, project_url, created_at)
+VALUES (3, 'Ads Campaign', 'Facebook ads project', NULL, NULL, CURRENT_TIMESTAMP);
+
+
+-- =====================================================
+-- 9. ORDERS
+-- =====================================================
+INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at)
+VALUES (1, 1, 1, 'completed', 150000, DATE '2026-04-20', 'Website UMKM', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at)
+VALUES (2, 2, 2, 'in_progress', 100000, DATE '2026-04-25', 'Logo bisnis', CURRENT_TIMESTAMP, NULL);
+
+INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at)
+VALUES (3, 3, 3, 'completed', 300000, DATE '2026-04-18', 'Ads campaign', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at)
+VALUES (1, 4, 1, 'pending', 150000, DATE '2026-05-01', 'Website toko', CURRENT_TIMESTAMP, NULL);
+
+INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at)
+VALUES (2, 5, 2, 'pending', 100000, DATE '2026-05-02', 'Logo brand', CURRENT_TIMESTAMP, NULL);
+
+INSERT INTO ORDERS (package_id, client_id, freelancer_id, status, total_price, deadline, requirements, created_at, completed_at)
+VALUES (3, 6, 3, 'in_progress', 300000, DATE '2026-05-05', 'Ads Instagram', CURRENT_TIMESTAMP, NULL);
+
+
+-- =====================================================
+-- 10. ORDER REVISIONS
+-- =====================================================
+INSERT INTO ORDER_REVISIONS (order_id, description, attachment_url, requested_at)
+VALUES (2, 'Revisi warna logo', 'rev1.png', CURRENT_TIMESTAMP);
+
+INSERT INTO ORDER_REVISIONS (order_id, description, attachment_url, requested_at)
+VALUES (6, 'Revisi target audience ads', 'rev2.png', CURRENT_TIMESTAMP);
+
+
+-- =====================================================
+-- 11. REVIEWS
+-- =====================================================
+INSERT INTO REVIEWS (order_id, reviewer_id, rating, review_comment, created_at)
+VALUES (1, 1, 5, 'Sangat bagus', CURRENT_TIMESTAMP);
+
+INSERT INTO REVIEWS (order_id, reviewer_id, rating, review_comment, created_at)
+VALUES (3, 3, 5, 'Mantap sekali', CURRENT_TIMESTAMP);
+
+
+-- =====================================================
+-- 12. PAYMENTS
+-- =====================================================
+INSERT INTO PAYMENTS (order_id, amount, method, status, transaction_ref, paid_at)
+VALUES (1, 150000, 'gopay', 'success', 'TRX001', CURRENT_TIMESTAMP);
+
+INSERT INTO PAYMENTS (order_id, amount, method, status, transaction_ref, paid_at)
+VALUES (2, 100000, 'ovo', 'success', 'TRX002', CURRENT_TIMESTAMP);
+
+INSERT INTO PAYMENTS (order_id, amount, method, status, transaction_ref, paid_at)
+VALUES (3, 300000, 'bank', 'success', 'TRX003', CURRENT_TIMESTAMP);
+
+
+-- =====================================================
+-- 13. TRANSACTIONS
+-- =====================================================
+INSERT INTO TRANSACTIONS (user_id, type, amount, reference_id, reference_type, created_at)
+VALUES (1, 'debit', 150000, 1, 'payment', CURRENT_TIMESTAMP);
+
+INSERT INTO TRANSACTIONS (user_id, type, amount, reference_id, reference_type, created_at)
+VALUES (9, 'credit', 150000, 1, 'payment', CURRENT_TIMESTAMP);
+
+INSERT INTO TRANSACTIONS (user_id, type, amount, reference_id, reference_type, created_at)
+VALUES (2, 'debit', 100000, 2, 'payment', CURRENT_TIMESTAMP);
+
+INSERT INTO TRANSACTIONS (user_id, type, amount, reference_id, reference_type, created_at)
+VALUES (10, 'credit', 100000, 2, 'payment', CURRENT_TIMESTAMP);
+
+INSERT INTO TRANSACTIONS (user_id, type, amount, reference_id, reference_type, created_at)
+VALUES (3, 'debit', 300000, 3, 'payment', CURRENT_TIMESTAMP);
+
+INSERT INTO TRANSACTIONS (user_id, type, amount, reference_id, reference_type, created_at)
+VALUES (11, 'credit', 300000, 3, 'payment', CURRENT_TIMESTAMP);
+
+
+-- =====================================================
+-- 14. TOPUPS
+-- =====================================================
+INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at)
+VALUES (1, 500000, 'gopay', 'success', 'TOP001', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at)
+VALUES (2, 300000, 'bank', 'success', 'TOP002', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at)
+VALUES (4, 200000, 'ovo', 'success', 'TOP003', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at)
+VALUES (5, 700000, 'dana', 'success', 'TOP004', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO TOPUPS (user_id, amount, payment_method, status, transaction_ref, created_at, paid_at)
+VALUES (6, 150000, 'gopay', 'pending', 'TOP005', CURRENT_TIMESTAMP, NULL);
+
+
+-- =====================================================
+-- 15. WITHDRAWALS
+-- =====================================================
+INSERT INTO WITHDRAWALS (freelancer_id, amount, bank_name, account_number, status, requested_at, processed_at)
+VALUES (1, 200000, 'BCA', '1234567890', 'pending', CURRENT_TIMESTAMP, NULL);
+
+INSERT INTO WITHDRAWALS (freelancer_id, amount, bank_name, account_number, status, requested_at, processed_at)
+VALUES (2, 150000, 'BRI', '987654321', 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO WITHDRAWALS (freelancer_id, amount, bank_name, account_number, status, requested_at, processed_at)
+VALUES (3, 300000, 'BNI', '1122334455', 'pending', CURRENT_TIMESTAMP, NULL);
+
+-- =====================================================
+-- 16. MESSAGES
+-- =====================================================
+INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at)
+VALUES (1, 9, 1, 'Halo dev, progress?', '0', CURRENT_TIMESTAMP);
+
+INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at)
+VALUES (9, 1, 1, 'Sedang proses', '0', CURRENT_TIMESTAMP);
+
+INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at)
+VALUES (2, 10, 2, 'Logo sudah jadi?', '0', CURRENT_TIMESTAMP);
+
+INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at)
+VALUES (10, 2, 2, 'Revisi sedikit', '0', CURRENT_TIMESTAMP);
+
+INSERT INTO MESSAGES (sender_id, receiver_id, order_id, content, is_read, sent_at)
+VALUES (3, 11, 3, 'Ads jalan?', '0', CURRENT_TIMESTAMP);
+
+
+-- =====================================================
+-- 17. NOTIFICATIONS
+-- =====================================================
+INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at)
+VALUES (1, 'order', 'Order baru', 'Freelancer mulai kerja', '0', CURRENT_TIMESTAMP);
+
+INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at)
+VALUES (9, 'payment', 'Payment masuk', 'Dana diterima', '0', CURRENT_TIMESTAMP);
+
+INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at)
+VALUES (10, 'order', 'Revisi', 'Client request perubahan', '0', CURRENT_TIMESTAMP);
+
+
+INSERT INTO NOTIFICATIONS (user_id, type, title, body, is_read, created_at)
+VALUES (11, 'ads', 'Campaign aktif', 'Iklan berjalan', '0', CURRENT_TIMESTAMP);

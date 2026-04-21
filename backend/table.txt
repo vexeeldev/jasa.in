@@ -6,13 +6,12 @@ CREATE TABLE USERS (
     full_name     VARCHAR2(100),
     phone         VARCHAR2(20),
     avatar_url    VARCHAR2(255),
-    is_freelancer CHAR(1)   DEFAULT '0' NOT NULL,
-    is_admin      CHAR(1)   DEFAULT '0' NOT NULL,
-    is_verified   CHAR(1)   DEFAULT '0' NOT NULL,
+
+    role          VARCHAR2(20) DEFAULT 'klien' NOT NULL,
+
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_is_freelancer CHECK (is_freelancer IN ('0','1')),
-    CONSTRAINT chk_is_admin      CHECK (is_admin      IN ('0','1')),
-    CONSTRAINT chk_is_verified   CHECK (is_verified   IN ('0','1'))
+
+    CONSTRAINT chk_role CHECK (role IN ('klien', 'freelancer', 'admin'))
 );
 
 CREATE TABLE FREELANCER_PROFILES (

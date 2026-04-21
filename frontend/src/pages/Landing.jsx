@@ -25,6 +25,8 @@ import {
   Clock,
   ThumbsUp
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { use } from 'react';
 
 const FEATURED_SERVICES = [
   { 
@@ -81,6 +83,7 @@ const CATEGORIES = [
 ];
 
 export default function Landing({ onNavigate = () => {} }) {
+  const Navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -123,15 +126,15 @@ export default function Landing({ onNavigate = () => {} }) {
 
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => onNavigate('login')}
-              className={`hidden md:block px-4 py-2 font-bold text-sm transition-colors ${
+              onClick={() => Navigate('/login')}
+              className={`hidden md:block px-4 py-2 font-bold text-sm transition-colors cursor-pointer ${
                 isScrolled ? 'text-slate-600 hover:text-emerald-600' : 'text-white hover:text-emerald-300'
               }`}
             >
               Masuk Akun
             </button>
             <button 
-              onClick={() => onNavigate('register')}
+              onClick={() => Navigate('/register')}
               className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-sm transition-all shadow-lg shadow-emerald-900/20 active:scale-95"
             >
               Daftar Gratis
@@ -368,7 +371,7 @@ export default function Landing({ onNavigate = () => {} }) {
               <div className="lg:w-1/2 w-full bg-white/5 backdrop-blur-xl rounded-[3rem] p-10 border border-white/10 text-center">
                  <h3 className="text-3xl font-black mb-6 tracking-tight">Siap Kembangkan Bisnis?</h3>
                  <p className="text-slate-400 mb-10 text-lg">Mulai pesan jasa pertama Anda hari ini dan rasakan kemudahannya.</p>
-                 <button onClick={() => onNavigate('register')} className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-10 py-5 rounded-2xl font-black text-xl shadow-xl transition-all active:scale-95">
+                 <button onClick={() => Navigate('/register')} className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-10 py-5 rounded-2xl font-black text-xl shadow-xl transition-all active:scale-95">
                     Buat Akun Gratis
                  </button>
               </div>
@@ -384,8 +387,8 @@ export default function Landing({ onNavigate = () => {} }) {
         </h2>
         <p className="text-2xl text-slate-400 mb-16 font-bold uppercase tracking-widest">Temukan Solusi Anda Sekarang</p>
         <button 
-          onClick={() => onNavigate('register')}
-          className="px-16 py-8 bg-slate-950 text-white rounded-[3rem] font-black text-3xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95"
+          onClick={() => Navigate('/register')}
+          className="px-16 py-8 cursor-pointer bg-slate-950 text-white rounded-[3rem] font-black text-3xl hover:bg-emerald-600 transition-all shadow-2xl active:scale-95"
         >
           Gabung Jasa.in
         </button>

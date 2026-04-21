@@ -1,0 +1,200 @@
+erDiagram
+
+  USERS {
+    NUMBER user_id PK
+    VARCHAR2 username
+    VARCHAR2 email
+    VARCHAR2 password_hash
+    VARCHAR2 full_name
+    VARCHAR2 phone
+    VARCHAR2 avatar_url
+    VARCHAR2 role
+    NUMBER balance
+    TIMESTAMP created_at
+  }
+
+  FREELANCER_PROFILES {
+    NUMBER freelancer_id PK
+    NUMBER user_id FK
+    CLOB bio
+    NUMBER rating_avg
+    NUMBER total_orders
+    VARCHAR2 freelancer_level
+    TIMESTAMP joined_at
+  }
+
+  SKILLS {
+    NUMBER skill_id PK
+    VARCHAR2 name
+    VARCHAR2 category
+  }
+
+  FREELANCER_SKILLS {
+    NUMBER freelancer_id FK
+    NUMBER skill_id FK
+  }
+
+  CATEGORIES {
+    NUMBER category_id PK
+    NUMBER parent_id FK
+    VARCHAR2 name
+    VARCHAR2 slug
+    VARCHAR2 icon_url
+  }
+
+  SERVICES {
+    NUMBER service_id PK
+    NUMBER freelancer_id FK
+    NUMBER category_id FK
+    VARCHAR2 title
+    CLOB description
+    VARCHAR2 thumbnail_url
+    VARCHAR2 status
+    NUMBER total_orders
+    TIMESTAMP created_at
+  }
+
+  SERVICE_PACKAGES {
+    NUMBER package_id PK
+    NUMBER service_id FK
+    VARCHAR2 package_name
+    CLOB description
+    NUMBER price
+    NUMBER delivery_days
+    NUMBER revisions
+  }
+
+  PORTFOLIOS {
+    NUMBER portfolio_id PK
+    NUMBER freelancer_id FK
+    VARCHAR2 title
+    CLOB description
+    VARCHAR2 image_url
+    VARCHAR2 project_url
+    TIMESTAMP created_at
+  }
+
+  ORDERS {
+    NUMBER order_id PK
+    NUMBER package_id FK
+    NUMBER client_id FK
+    NUMBER freelancer_id FK
+    VARCHAR2 status
+    NUMBER total_price
+    DATE deadline
+    CLOB requirements
+    TIMESTAMP created_at
+    TIMESTAMP completed_at
+  }
+
+  ORDER_REVISIONS {
+    NUMBER revision_id PK
+    NUMBER order_id FK
+    CLOB description
+    VARCHAR2 attachment_url
+    TIMESTAMP requested_at
+  }
+
+  REVIEWS {
+    NUMBER review_id PK
+    NUMBER order_id FK
+    NUMBER reviewer_id FK
+    NUMBER rating
+    CLOB review_comment
+    TIMESTAMP created_at
+  }
+
+  PAYMENTS {
+    NUMBER payment_id PK
+    NUMBER order_id FK
+    NUMBER amount
+    VARCHAR2 method
+    VARCHAR2 status
+    VARCHAR2 transaction_ref
+    TIMESTAMP paid_at
+  }
+
+  TRANSACTIONS {
+    NUMBER transaction_id PK
+    NUMBER user_id FK
+    VARCHAR2 type
+    NUMBER amount
+    NUMBER reference_id
+    VARCHAR2 reference_type
+    TIMESTAMP created_at
+  }
+
+  TOPUPS {
+    NUMBER topup_id PK
+    NUMBER user_id FK
+    NUMBER amount
+    VARCHAR2 payment_method
+    VARCHAR2 status
+    VARCHAR2 transaction_ref
+    TIMESTAMP created_at
+    TIMESTAMP paid_at
+  }
+
+  WITHDRAWALS {
+    NUMBER withdrawal_id PK
+    NUMBER freelancer_id FK
+    NUMBER amount
+    VARCHAR2 bank_name
+    VARCHAR2 account_number
+    VARCHAR2 status
+    TIMESTAMP requested_at
+    TIMESTAMP processed_at
+  }
+
+  MESSAGES {
+    NUMBER message_id PK
+    NUMBER sender_id FK
+    NUMBER receiver_id FK
+    NUMBER order_id FK
+    CLOB content
+    CHAR is_read
+    TIMESTAMP sent_at
+  }
+
+  NOTIFICATIONS {
+    NUMBER notif_id PK
+    NUMBER user_id FK
+    VARCHAR2 type
+    VARCHAR2 title
+    CLOB body
+    CHAR is_read
+    TIMESTAMP created_at
+  }
+
+  %% RELATIONSHIPS
+
+  USERS ||--o| FREELANCER_PROFILES : punya
+  USERS ||--o{ ORDERS : client
+  USERS ||--o{ REVIEWS : memberi
+  USERS ||--o{ MESSAGES : sender
+  USERS ||--o{ MESSAGES : receiver
+  USERS ||--o{ NOTIFICATIONS : menerima
+  USERS ||--o{ TRANSACTIONS : memiliki
+  USERS ||--o{ TOPUPS : topup
+
+  FREELANCER_PROFILES ||--o{ SERVICES : menawarkan
+  FREELANCER_PROFILES ||--o{ PORTFOLIOS : memiliki
+  FREELANCER_PROFILES ||--o{ ORDERS : mengerjakan
+  FREELANCER_PROFILES ||--o{ FREELANCER_SKILLS : memiliki
+  FREELANCER_PROFILES ||--o{ WITHDRAWALS : withdraw
+
+  SKILLS ||--o{ FREELANCER_SKILLS : dimiliki
+
+  CATEGORIES ||--o{ SERVICES : mengelompokkan
+  CATEGORIES ||--o{ CATEGORIES : sub_kategori
+
+  SERVICES ||--|{ SERVICE_PACKAGES : terdiri_dari
+  SERVICE_PACKAGES ||--o{ ORDERS : dipesan
+
+  ORDERS ||--o{ ORDER_REVISIONS : revisi
+  ORDERS ||--|| REVIEWS : review
+  ORDERS ||--|| PAYMENTS : pembayaran
+
+  PAYMENTS ||--o{ TRANSACTIONS : via_reference
+  TOPUPS ||--o{ TRANSACTIONS : via_reference
+  WITHDRAWALS ||--o{ TRANSACTIONS : via_reference

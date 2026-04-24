@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Briefcase } from 'lucide-react';
-import { EXISTING_USERS } from './constants';
+import { useAuth } from '../App';
+import { authAPI } from './api';
 
-const Login = ({ onLoginSuccess }) => {
+const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
+  
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -15,20 +19,46 @@ const Login = ({ onLoginSuccess }) => {
     if (errors.form) setErrors({});
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const user = EXISTING_USERS.find(u => u.email === formData.email);
-    if (user && formData.password.length >= 8) {
-      onLoginSuccess?.({ ...user, full_name: 'User Terverifikasi' });
-      navigate('/');
-    } else {
-      setErrors({ form: 'Email atau Password salah' });
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      const response = await authAPI.login({
+        email: formData.email,
+        password: formData.password
+      });
+
+      const { success, data, message } = response.data;
+
+      if (success) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        login(data.user);
+        
+        // Normalisasi role (support 'client' dan 'klien')
+        const userRole = (data.user.ROLE || data.user.role || '').toLowerCase();
+        
+        if (userRole === 'client' || userRole === 'klien') {
+          navigate('/client/dashboard');
+        } else {
+          navigate('/');
+        }
+      } else {
+        setErrors({ form: message || 'Login gagal' });
+      }
+      
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || 'Terjadi kesalahan koneksi ke server';
+      setErrors({ form: errorMsg });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row font-sans overflow-hidden">
-
       {/* KIRI: BRANDING */}
       <div
         className="hidden md:flex md:w-1/2 relative flex-col justify-between p-12 text-white bg-emerald-900"
@@ -90,8 +120,6 @@ const Login = ({ onLoginSuccess }) => {
       {/* KANAN: FORM */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-12 lg:p-20 overflow-y-auto">
         <div className="max-w-md w-full">
-
-          {/* Logo Mobile */}
           <div className="md:hidden mb-10 flex items-center gap-2">
             <Briefcase className="text-emerald-600" size={32} />
             <h1 className="text-4xl font-black">
@@ -112,7 +140,6 @@ const Login = ({ onLoginSuccess }) => {
               </div>
             )}
 
-            {/* Email */}
             <div>
               <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">
                 Email
@@ -131,7 +158,6 @@ const Login = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* Password */}
             <div>
               <div className="flex justify-between mb-1.5">
                 <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">
@@ -165,7 +191,6 @@ const Login = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-            {/* Remember Me */}
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -177,12 +202,12 @@ const Login = ({ onLoginSuccess }) => {
               </label>
             </div>
 
-            {/* Submit */}
             <button
               type="submit"
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-lg transition-all shadow-lg shadow-emerald-200 uppercase tracking-widest"
+              disabled={isLoading}
+              className={`w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-lg transition-all shadow-lg shadow-emerald-200 uppercase tracking-widest ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              Masuk Ke Akun
+              {isLoading ? 'Sedang Memproses...' : 'Masuk Ke Akun'}
             </button>
 
             <p className="text-center text-gray-500 text-sm mt-6">

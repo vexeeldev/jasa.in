@@ -2,117 +2,86 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./config/db');
 
-// Import routes
 const authRoutes = require('./routes/authRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// =====================
+// MIDDLEWARE
+// =====================
 app.use(cors({
-  origin: '*',
+  origin: 'http://localhost:5173',
   credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ========== ROUTES ==========
-// Health check / test route
+// =====================
+// ROUTES
+// =====================
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'jasa.in API is running',
-    version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      users: '/api/users',
-      services: '/api/services',
-      orders: '/api/orders'
-    }
+  res.json({
+    message: 'jasa.in API is running 🚀',
+    version: '1.0.0'
   });
 });
 
-// API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/profile', profileRoutes);
 
-// Contoh route tambahan (nanti bisa ditambah)
-// app.use('/api/users', userRoutes);
-// app.use('/api/services', serviceRoutes);
-// app.use('/api/orders', orderRoutes);
-
-// ========== ERROR HANDLING ==========
-// 404 handler - untuk route yang tidak ditemukan
-app.use((req, res) => {
+// =====================
+// 404 HANDLER
+// =====================
+app.use((req, res, next) => {
   res.status(404).json({
     success: false,
     message: 'Route not found',
-    requestedUrl: req.originalUrl
+    path: req.originalUrl
   });
 });
 
-// Global error handler
+// =====================
+// GLOBAL ERROR HANDLER
+// =====================
 app.use((err, req, res, next) => {
-  console.error('Error stack:', err.stack);
-  
-  // Handle JWT errors
+  console.error(err.stack);
+
   if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token tidak valid'
-    });
+    return res.status(401).json({ success: false, message: 'Token tidak valid' });
   }
-  
+
   if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token sudah kadaluarsa'
-    });
+    return res.status(401).json({ success: false, message: 'Token expired' });
   }
-  
-  // Default error response
-  res.status(500).json({
+
+  res.status(err.status || 500).json({
     success: false,
-    message: 'Internal Server Error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: err.message || 'Internal Server Error'
   });
 });
 
-// ========== START SERVER ==========
-// Inisialisasi database pool dan mulai server
+// =====================
+// START SERVER
+// =====================
 db.initialize()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`🚀 Server berjalan di http://localhost:${PORT}`);
-      console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 Auth API: http://localhost:${PORT}/api/auth`);
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
   })
   .catch(err => {
-    console.error('❌ Gagal memulai server karena error koneksi DB:', err);
+    console.error('DB ERROR:', err);
     process.exit(1);
   });
 
-// ========== GRACEFUL SHUTDOWN ==========
-// Handle penutupan server dengan baik
+// =====================
+// GRACEFUL SHUTDOWN
+// =====================
 process.on('SIGINT', async () => {
-  console.log('\n🛑 Server dimatikan, menutup koneksi pool Oracle...');
-  try {
-    await db.closePool();
-    console.log('✅ Koneksi database ditutup');
-    process.exit(0);
-  } catch (err) {
-    console.error('❌ Error menutup koneksi database:', err);
-    process.exit(1);
-  }
-});
-
-process.on('SIGTERM', async () => {
-  console.log('\n🛑 SIGTERM received, closing server...');
-  try {
-    await db.closePool();
-    console.log('✅ Koneksi database ditutup');
-    process.exit(0);
-  } catch (err) {
-    console.error('❌ Error menutup koneksi database:', err);
-    process.exit(1);
-  }
+  await db.closePool();
+  process.exit(0);
 });

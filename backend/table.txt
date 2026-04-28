@@ -207,7 +207,20 @@ CREATE TABLE MESSAGES (
     FOREIGN KEY (receiver_id) REFERENCES USERS(user_id),
     FOREIGN KEY (order_id) REFERENCES ORDERS(order_id)
 );
-
+# # CREATE TABLE MESSAGES (
+#     message_id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+#     sender_id NUMBER NOT NULL,
+#     receiver_id NUMBER NOT NULL,
+#     order_id NUMBER NOT NULL,
+#     content CLOB,
+#     is_read CHAR(1) DEFAULT '0',
+#     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#     deleted_by_sender CHAR(1) DEFAULT '0',
+#     deleted_by_receiver CHAR(1) DEFAULT '0',
+#     FOREIGN KEY (sender_id) REFERENCES USERS(user_id),
+#     FOREIGN KEY (receiver_id) REFERENCES USERS(user_id),
+#     FOREIGN KEY (order_id) REFERENCES ORDERS(order_id)
+# );
 -- =========================
 -- NOTIFICATIONS
 -- =========================

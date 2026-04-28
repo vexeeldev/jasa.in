@@ -1,0 +1,46 @@
+backend/
+├── app.js
+├── package.json
+├── .env
+├── config/
+│   └── db.js
+├── middleware/
+│   ├── auth.js
+│   ├── roleMiddleware.js
+│   ├── upload.js
+│   └── validation.js
+├── controllers/
+│   ├── authController.js
+│   ├── userController.js
+│   ├── serviceController.js
+│   ├── orderController.js
+│   ├── paymentController.js
+│   ├── messageController.js
+│   ├── reviewController.js
+│   ├── categoryController.js
+│   ├── dashboardController.js
+│   ├── wishlistController.js
+│   ├── notificationController.js
+│   ├── portfolioController.js
+│   ├── skillController.js
+│   └── adminController.js
+├── routes/
+│   ├── index.js
+│   ├── authRoutes.js
+│   ├── userRoutes.js
+│   ├── serviceRoutes.js
+│   ├── orderRoutes.js
+│   ├── paymentRoutes.js
+│   ├── messageRoutes.js
+│   ├── reviewRoutes.js
+│   ├── categoryRoutes.js
+│   ├── dashboardRoutes.js
+│   ├── wishlistRoutes.js
+│   ├── notificationRoutes.js
+│   ├── portfolioRoutes.js
+│   ├── skillRoutes.js
+│   └── adminRoutes.js
+├── validators/
+│   └── index.js
+└── utils/
+    └── helpers.js

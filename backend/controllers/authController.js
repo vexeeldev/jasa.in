@@ -23,8 +23,8 @@ exports.login = async (req, res) => {
     const result = await connection.execute(
       `SELECT u.user_id, u.username, u.email, u.password_hash,
               u.full_name, u.phone, u.avatar_url,
-              u.role, u.balance, u.created_at,
-              fp.freelancer_id, fp.freelancer_level, fp.rating_avg, fp.total_orders, fp.bio
+              u.role, u.balance,
+              fp.freelancer_id, fp.freelancer_level, fp.rating_avg, fp.total_orders
        FROM USERS u
        LEFT JOIN FREELANCER_PROFILES fp ON u.user_id = fp.user_id
        WHERE u.email = :email`,
@@ -39,9 +39,9 @@ exports.login = async (req, res) => {
       });
     }
 
-    const user = result.rows[0];
+    const dbUser = result.rows[0];
 
-    const isValid = await bcrypt.compare(password, user.PASSWORD_HASH);
+    const isValid = await bcrypt.compare(password, dbUser.PASSWORD_HASH);
     if (!isValid) {
       return res.status(401).json({
         success: false,
@@ -51,16 +51,32 @@ exports.login = async (req, res) => {
 
     const token = jwt.sign(
       {
-        user_id: user.USER_ID,
-        email: user.EMAIL,
-        role: user.ROLE,
-        freelancer_id: user.FREELANCER_ID
+        user_id: dbUser.USER_ID,
+        email: dbUser.EMAIL,
+        role: dbUser.ROLE,
+        freelancer_id: dbUser.FREELANCER_ID
       },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    delete user.PASSWORD_HASH;
+    // 🔥 CARA AMAN: Buat object baru dengan properti yang dipilih secara eksplisit
+    const user = {
+      user_id: Number(dbUser.USER_ID),
+      username: String(dbUser.USERNAME || ''),
+      email: String(dbUser.EMAIL || ''),
+      full_name: String(dbUser.FULL_NAME || ''),
+      phone: String(dbUser.PHONE || ''),
+      avatar_url: String(dbUser.AVATAR_URL || ''),
+      role: String(dbUser.ROLE || 'klien'),
+      balance: Number(dbUser.BALANCE || 0),
+      freelancer_id: dbUser.FREELANCER_ID ? Number(dbUser.FREELANCER_ID) : null,
+      freelancer_level: String(dbUser.FREELANCER_LEVEL || ''),
+      rating_avg: Number(dbUser.RATING_AVG || 0),
+      total_orders: Number(dbUser.TOTAL_ORDERS || 0)
+    };
+
+    console.log('✅ Login berhasil:', user.email);
 
     res.json({
       success: true,

@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/db');
+const oracledb = require('oracledb');
 
 // ================= CLIENT DASHBOARD =================
 exports.getClientDashboard = async (req, res) => {

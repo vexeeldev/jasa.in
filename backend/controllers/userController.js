@@ -1,5 +1,6 @@
 const { getConnection } = require('../config/db');
 const bcrypt = require('bcryptjs');
+const oracledb = require('oracledb');
 
 // ================= GET PROFILE =================
 exports.getProfile = async (req, res) => {

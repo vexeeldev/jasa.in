@@ -1,5 +1,5 @@
 const { getConnection } = require('../config/db');
-
+const oracledb = require('oracledb');
 // ================= GET MY WISHLIST =================
 exports.getMyWishlist = async (req, res) => {
   let connection;

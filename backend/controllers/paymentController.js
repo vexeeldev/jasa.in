@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/db');
+const oracledb = require('oracledb');
 
 //================= GET BALANCE =================
 exports.getBalance = async (req, res) => {

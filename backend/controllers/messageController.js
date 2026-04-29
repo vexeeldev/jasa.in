@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/db');
+const oracledb = require('oracledb');
 
 // ================= GET CHAT LIST =================
 exports.getChatList = async (req, res) => {

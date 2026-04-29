@@ -117,7 +117,6 @@ exports.getMyFullProfile = async (req, res) => {
         }
     }
 };
-
 /**
  * PUT: Update Profil
  */

@@ -1,32 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const authController = require('../controllers/authController');
 
-// =====================
-// PUBLIC ROUTES
-// =====================
-router.post('/register', authController.register);
-router.post('/login', authController.login);
-router.post(
-  '/become-freelancer',
-  authController.verifyToken,
-  authController.becomeFreelancer
-);
+const {
+  login,
+  register,
+  getCurrentUser,
+  logout,
+  changePassword,
+  becomeFreelancer,
+  forgotPassword,
+  resetPassword
+} = require('../controllers/authController');
 
-// =====================
-// PROTECTED ROUTES
-// =====================
-router.post('/logout', authController.verifyToken, authController.logout);
-
-router.get('/me', authController.verifyToken, authController.getCurrentUser);
-
-// (Optional - debug)
-router.get('/verify', authController.verifyToken, (req, res) => {
-  res.json({
-    success: true,
-    message: 'Token valid',
-    user: req.user
-  });
-});
+router.post('/login', login);
+router.post('/register', register);
+router.get('/me', getCurrentUser);
+router.post('/logout', logout);
+router.put('/change-password', changePassword);
+router.post('/become-freelancer', becomeFreelancer);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 module.exports = router;

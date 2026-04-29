@@ -18,7 +18,7 @@ exports.createReview = async (req, res) => {
 
     connection = await getConnection();
 
-    // Verify order belongs to client and is completed
+    //Verify order belongs to client and is completed
     const orderResult = await connection.execute(
       `SELECT o.order_id, o.freelancer_id, o.client_id, o.status,
               sp.service_id, s.title as service_title

@@ -20,15 +20,21 @@ exports.getChatList = async (req, res) => {
          (SELECT content FROM MESSAGES msg 
           WHERE msg.order_id = m.order_id 
           AND (msg.sender_id = :userId OR msg.receiver_id = :userId)
+          AND NOT (msg.deleted_by_sender = '1' AND msg.sender_id = :userId)
+          AND NOT (msg.deleted_by_receiver = '1' AND msg.receiver_id = :userId)
           ORDER BY msg.sent_at DESC FETCH FIRST 1 ROW ONLY) as last_message,
          (SELECT sent_at FROM MESSAGES msg 
           WHERE msg.order_id = m.order_id 
           AND (msg.sender_id = :userId OR msg.receiver_id = :userId)
+          AND NOT (msg.deleted_by_sender = '1' AND msg.sender_id = :userId)
+          AND NOT (msg.deleted_by_receiver = '1' AND msg.receiver_id = :userId)
           ORDER BY msg.sent_at DESC FETCH FIRST 1 ROW ONLY) as last_message_time,
          (SELECT COUNT(*) FROM MESSAGES msg 
           WHERE msg.order_id = m.order_id 
           AND msg.receiver_id = :userId 
-          AND msg.is_read = '0') as unread_count,
+          AND msg.is_read = '0'
+          AND NOT (msg.deleted_by_sender = '1' AND msg.sender_id = :userId)
+          AND NOT (msg.deleted_by_receiver = '1' AND msg.receiver_id = :userId)) as unread_count,
          m.order_id,
          o.status as order_status,
          s.title as service_title,
@@ -39,7 +45,9 @@ exports.getChatList = async (req, res) => {
        JOIN ORDERS o ON m.order_id = o.order_id
        JOIN SERVICE_PACKAGES sp ON o.package_id = sp.package_id
        JOIN SERVICES s ON sp.service_id = s.service_id
-       WHERE m.sender_id = :userId OR m.receiver_id = :userId
+       WHERE (m.sender_id = :userId OR m.receiver_id = :userId)
+         AND NOT (m.deleted_by_sender = '1' AND m.sender_id = :userId)
+         AND NOT (m.deleted_by_receiver = '1' AND m.receiver_id = :userId)
        ORDER BY last_message_time DESC NULLS LAST`,
       { userId },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -55,7 +63,7 @@ exports.getChatList = async (req, res) => {
   }
 };
 
-// ================= GET MESSAGES BY ORDER =================
+// ================= GET MESSAGES BY ORDER (support soft delete) =================
 exports.getMessagesByOrder = async (req, res) => {
   let connection;
   try {
@@ -91,22 +99,29 @@ exports.getMessagesByOrder = async (req, res) => {
     
     const offset = (page - 1) * limit;
     
+    // 🔥 AMBIL PESAN YANG TIDAK DI-DELETE OLEH USER INI
     const result = await connection.execute(
       `SELECT m.*, 
               u.full_name as sender_name, u.avatar_url as sender_avatar
        FROM MESSAGES m
        JOIN USERS u ON m.sender_id = u.user_id
        WHERE m.order_id = :orderId
+         AND NOT (m.deleted_by_sender = '1' AND m.sender_id = :userId)
+         AND NOT (m.deleted_by_receiver = '1' AND m.receiver_id = :userId)
        ORDER BY m.sent_at ASC
        OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`,
-      { orderId, offset, limit },
+      { orderId, userId, offset, limit },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
     
     // Get total count
     const countResult = await connection.execute(
-      `SELECT COUNT(*) as total FROM MESSAGES WHERE order_id = :orderId`,
-      { orderId }
+      `SELECT COUNT(*) as total 
+       FROM MESSAGES 
+       WHERE order_id = :orderId
+         AND NOT (deleted_by_sender = '1' AND sender_id = :userId)
+         AND NOT (deleted_by_receiver = '1' AND receiver_id = :userId)`,
+      { orderId, userId }
     );
     const total = countResult.rows[0]?.TOTAL || 0;
     
@@ -307,7 +322,9 @@ exports.getUnreadCount = async (req, res) => {
     const result = await connection.execute(
       `SELECT COUNT(*) as unread_count
        FROM MESSAGES
-       WHERE receiver_id = :userId AND is_read = '0'`,
+       WHERE receiver_id = :userId AND is_read = '0'
+         AND NOT (deleted_by_sender = '1' AND sender_id = :userId)
+         AND NOT (deleted_by_receiver = '1' AND receiver_id = :userId)`,
       { userId },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
@@ -325,7 +342,7 @@ exports.getUnreadCount = async (req, res) => {
   }
 };
 
-// ================= DELETE MESSAGE =================
+// ================= DELETE MESSAGE (SOFT DELETE) =================
 exports.deleteMessage = async (req, res) => {
   let connection;
   try {
@@ -334,24 +351,116 @@ exports.deleteMessage = async (req, res) => {
     
     connection = await getConnection();
     
-    // Only sender can delete their own message
-    const result = await connection.execute(
+    // Cek pesan dan tentukan siapa yang menghapus
+    const checkResult = await connection.execute(
+      `SELECT sender_id, receiver_id 
+       FROM MESSAGES 
+       WHERE message_id = :messageId`,
+      { messageId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Pesan tidak ditemukan' 
+      });
+    }
+    
+    const message = checkResult.rows[0];
+    const isSender = message.SENDER_ID === userId;
+    const isReceiver = message.RECEIVER_ID === userId;
+    
+    if (!isSender && !isReceiver) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Tidak memiliki akses' 
+      });
+    }
+    
+    // Soft delete berdasarkan siapa yang menghapus
+    if (isSender) {
+      await connection.execute(
+        `UPDATE MESSAGES SET deleted_by_sender = '1' 
+         WHERE message_id = :messageId`,
+        { messageId }
+      );
+    } else if (isReceiver) {
+      await connection.execute(
+        `UPDATE MESSAGES SET deleted_by_receiver = '1' 
+         WHERE message_id = :messageId`,
+        { messageId }
+      );
+    }
+    
+    // Jika kedua pihak sudah menghapus, hapus permanen
+    await connection.execute(
       `DELETE FROM MESSAGES 
-       WHERE message_id = :messageId AND sender_id = :userId`,
-      { messageId, userId }
+       WHERE message_id = :messageId 
+         AND deleted_by_sender = '1' 
+         AND deleted_by_receiver = '1'`,
+      { messageId }
     );
     
     await connection.commit();
     
-    if (result.rowsAffected === 0) {
-      return res.status(404).json({ success: false, message: 'Pesan tidak ditemukan' });
-    }
-    
-    res.json({ success: true, message: 'Pesan berhasil dihapus' });
+    res.json({ 
+      success: true, 
+      message: 'Pesan berhasil dihapus' 
+    });
     
   } catch (err) {
     if (connection) await connection.rollback();
-    console.error(err);
+    console.error('DELETE MESSAGE ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+
+// ================= DELETE ALL MESSAGES IN ORDER (SOFT DELETE) =================
+exports.deleteAllMessagesInOrder = async (req, res) => {
+  let connection;
+  try {
+    const { orderId } = req.params;
+    const userId = req.user.user_id;
+    
+    connection = await getConnection();
+    
+    // Soft delete semua pesan dalam order untuk user ini
+    await connection.execute(
+      `UPDATE MESSAGES 
+       SET deleted_by_sender = CASE 
+           WHEN sender_id = :userId THEN '1' 
+           ELSE deleted_by_sender 
+         END,
+           deleted_by_receiver = CASE 
+           WHEN receiver_id = :userId THEN '1' 
+           ELSE deleted_by_receiver 
+         END
+       WHERE order_id = :orderId`,
+      { userId, orderId }
+    );
+    
+    // Hapus permanen pesan yang sudah didelete oleh kedua pihak
+    await connection.execute(
+      `DELETE FROM MESSAGES 
+       WHERE order_id = :orderId 
+         AND deleted_by_sender = '1' 
+         AND deleted_by_receiver = '1'`,
+      { orderId }
+    );
+    
+    await connection.commit();
+    
+    res.json({ 
+      success: true, 
+      message: 'Semua pesan berhasil dihapus' 
+    });
+    
+  } catch (err) {
+    if (connection) await connection.rollback();
+    console.error('DELETE ALL MESSAGES ERROR:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   } finally {
     if (connection) await connection.close();
@@ -406,7 +515,5 @@ exports.getChatPartner = async (req, res) => {
 
 // ================= SEND TYPING INDICATOR =================
 exports.sendTypingIndicator = async (req, res) => {
-  // This would typically use WebSockets (Socket.io)
-  // For REST API, just return success
   res.json({ success: true, message: 'Typing indicator sent' });
 };

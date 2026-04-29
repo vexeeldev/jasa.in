@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const oracledb = require('oracledb');
 const { getConnection } = require('../config/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'Platform_jasa.in';

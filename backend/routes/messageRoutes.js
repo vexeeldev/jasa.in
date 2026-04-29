@@ -3,7 +3,6 @@ const router = express.Router();
 const messageController = require('../controllers/messageController');
 const authMiddleware = require('../middleware/auth');
 
-// Semua route messages memerlukan authentication
 router.use(authMiddleware);
 
 // Get chat list
@@ -24,8 +23,11 @@ router.put('/order/:orderId/read-all', messageController.markAllAsRead);
 // Get unread count
 router.get('/unread/count', messageController.getUnreadCount);
 
-// Delete message
+// Delete single message (soft delete)
 router.delete('/:messageId', messageController.deleteMessage);
+
+// Delete all messages in order (soft delete)
+router.delete('/order/:orderId/all', messageController.deleteAllMessagesInOrder);
 
 // Get chat partner info
 router.get('/partner/:orderId/:partnerId', messageController.getChatPartner);

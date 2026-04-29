@@ -1,6 +1,6 @@
 const { getConnection } = require('../config/db');
 
-// ================= GET BALANCE =================
+//================= GET BALANCE =================
 exports.getBalance = async (req, res) => {
   let connection;
   try {

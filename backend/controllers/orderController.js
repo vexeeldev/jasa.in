@@ -1,6 +1,6 @@
 const { getConnection } = require('../config/db');
 
-// ================= GET ORDERS =================
+//================= GET ORDERS =================
 exports.getOrders = async (req, res) => {
   let connection;
   try {

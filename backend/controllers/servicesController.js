@@ -152,7 +152,7 @@ exports.getServiceById = async (req, res) => {
       { service_id: id }
     );
     service.PACKAGES = pkgResult.rows;
-    
+  
     // Get gallery    
     const galleryResult = await connection.execute(
       `SELECT image_url FROM SERVICE_GALLERY WHERE service_id = :service_id ORDER BY sort_order`,

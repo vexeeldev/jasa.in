@@ -22,32 +22,50 @@ const safeJson = (res, data, status = 200) => {
 // ================= GET PROFILE =================
 exports.getProfile = async (req, res) => {
   let connection;
+
   try {
     const userId = req.params.id || req.user?.user_id;
-    
+
     if (!userId) {
-      return res.status(400).json({ success: false, message: 'User ID tidak ditemukan' });
+      return res.status(400).json({
+        success: false,
+        message: 'User ID tidak ditemukan'
+      });
     }
-    
+
     connection = await getConnection();
-    
-    // Query user
+
+    // =========================
+    // Ambil data utama user
+    // =========================
     const userResult = await connection.execute(
-      `SELECT u.user_id, u.username, u.email, u.full_name, u.phone,
-              u.avatar_url, u.role, u.balance, u.created_at
+      `SELECT u.user_id,
+              u.username,
+              u.email,
+              u.full_name,
+              u.phone,
+              u.avatar_url,
+              u.role,
+              u.balance,
+              u.created_at
        FROM USERS u
        WHERE u.user_id = :userId`,
       { userId },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
-    
+
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+      return res.status(404).json({
+        success: false,
+        message: 'User tidak ditemukan'
+      });
     }
-    
+
     const userRow = userResult.rows[0];
-    
-    // Buat object plain
+
+    // =========================
+    // Format response user
+    // =========================
     const userData = {
       user_id: Number(userRow.USER_ID),
       username: String(userRow.USERNAME || ''),
@@ -57,61 +75,122 @@ exports.getProfile = async (req, res) => {
       avatar_url: String(userRow.AVATAR_URL || ''),
       role: String(userRow.ROLE || 'klien'),
       balance: Number(userRow.BALANCE || 0),
-      created_at: userRow.CREATED_AT ? String(userRow.CREATED_AT) : null,
-      freelancer: null
+      created_at: userRow.CREATED_AT
+        ? new Date(userRow.CREATED_AT).toISOString()
+        : null,
+      freelancer: null,
+      skills: [],
+      portfolios: []
     };
-    
-    // Jika freelancer, ambil data freelancer profile
+
+    // =========================
+    // Jika freelancer, ambil data freelancer + skills + portfolios
+    // =========================
     if (userData.role === 'freelancer') {
       const fpResult = await connection.execute(
-        `SELECT freelancer_id, bio, rating_avg, total_orders, freelancer_level
+        `SELECT freelancer_id,
+                TO_CHAR(bio) as bio,
+                rating_avg,
+                total_orders,
+                freelancer_level
          FROM FREELANCER_PROFILES
          WHERE user_id = :userId`,
         { userId },
         { outFormat: oracledb.OUT_FORMAT_OBJECT }
       );
-      
+
       if (fpResult.rows.length > 0) {
         const fp = fpResult.rows[0];
-        
-        // 🔥 Handle CLOB dengan benar
-        let bioString = '';
-        if (fp.BIO) {
-          if (typeof fp.BIO === 'string') {
-            bioString = fp.BIO;
-          } else if (fp.BIO && typeof fp.BIO.getData === 'function') {
-            bioString = fp.BIO.getData();
-          } else if (fp.BIO.VALUE) {
-            bioString = String(fp.BIO.VALUE);
-          } else {
-            bioString = String(fp.BIO);
-          }
-        }
-        
+
         userData.freelancer = {
           freelancer_id: Number(fp.FREELANCER_ID),
-          bio: bioString,
+          bio: String(fp.BIO || ''),
           rating_avg: Number(fp.RATING_AVG || 0),
           total_orders: Number(fp.TOTAL_ORDERS || 0),
           freelancer_level: String(fp.FREELANCER_LEVEL || 'new')
         };
+
+        // =========================
+        // Ambil SKILLS freelancer
+        // =========================
+        const skillsResult = await connection.execute(
+          `SELECT s.skill_id, s.name, s.category
+           FROM SKILLS s
+           JOIN FREELANCER_SKILLS fs ON s.skill_id = fs.skill_id
+           WHERE fs.freelancer_id = :freelancerId
+           ORDER BY s.name ASC`,
+          { freelancerId: fp.FREELANCER_ID },
+          { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        userData.skills = skillsResult.rows.map(skill => ({
+          skill_id: Number(skill.SKILL_ID),
+          name: String(skill.NAME || ''),
+          category: String(skill.CATEGORY || '')
+        }));
+
+        // =========================
+        // Ambil PORTFOLIOS freelancer
+        // =========================
+        const portfoliosResult = await connection.execute(
+          `SELECT portfolio_id, title, description, image_url, project_url, created_at
+           FROM PORTFOLIOS
+           WHERE freelancer_id = :freelancerId
+           ORDER BY created_at DESC`,
+          { freelancerId: fp.FREELANCER_ID },
+          { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        userData.portfolios = portfoliosResult.rows.map(portfolio => ({
+          portfolio_id: Number(portfolio.PORTFOLIO_ID),
+          title: String(portfolio.TITLE || ''),
+          description: String(portfolio.DESCRIPTION || ''),
+          image_url: String(portfolio.IMAGE_URL || ''),
+          project_url: String(portfolio.PROJECT_URL || ''),
+          created_at: portfolio.CREATED_AT
+            ? new Date(portfolio.CREATED_AT).toISOString()
+            : null
+        }));
       }
     }
-    
-    // Hitung total reviews given
+
+    // =========================
+    // Total review yang diberikan user
+    // =========================
     const reviewResult = await connection.execute(
-      `SELECT COUNT(*) as total FROM REVIEWS WHERE reviewer_id = :userId`,
-      { userId }
+      `SELECT COUNT(*) AS TOTAL
+       FROM REVIEWS
+       WHERE reviewer_id = :userId`,
+      { userId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
+
     userData.total_reviews_given = Number(reviewResult.rows[0]?.TOTAL || 0);
-    
-    res.json({ success: true, data: userData });
-    
+
+    // =========================
+    // Response sukses
+    // =========================
+    return res.status(200).json({
+      success: true,
+      data: userData
+    });
+
   } catch (err) {
     console.error('GET PROFILE ERROR:', err);
-    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: ' + err.message
+    });
+
   } finally {
-    if (connection) await connection.close();
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Connection close error:', closeErr);
+      }
+    }
   }
 };
 

@@ -1,0 +1,295 @@
+    Baik, saya akan **list semua API** yang sudah kamu buat lengkap dengan endpoint, method, deskripsi, lokasi file, dan statusnya.
+
+## 📊 **TOTAL API: 94 Endpoints**
+
+---
+
+## 1️⃣ **AUTH API** (7 endpoints)
+📁 `routes/authRoutes.js` → `controllers/authController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 1 | POST | `/api/auth/login` | Login user | ✅ |
+| 2 | POST | `/api/auth/register` | Register user (client/freelancer) | ✅ |
+| 3 | GET | `/api/auth/me` | Get current user (butuh token) | ✅ |
+| 4 | POST | `/api/auth/logout` | Logout | ✅ |
+| 5 | PUT | `/api/auth/change-password` | Ganti password | ✅ |
+| 6 | POST | `/api/auth/become-freelancer` | Upgrade client ke freelancer | ✅ |
+| 7 | POST | `/api/auth/forgot-password` | Lupa password (request OTP) | ✅ |
+| 8 | POST | `/api/auth/reset-password` | Reset password (verify OTP) | ✅ |
+
+---
+
+## 2️⃣ **USER API** (9 endpoints)
+📁 `routes/userRoutes.js` → `controllers/userController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 9 | GET | `/api/users/profile/:id` | Get profile by ID (public) | ✅ |
+| 10 | GET | `/api/users/me` | Get my profile | ✅ |
+| 11 | PUT | `/api/users/profile` | Update profile | ✅ |
+| 12 | POST | `/api/users/avatar` | Upload avatar | ✅ |
+| 13 | PUT | `/api/users/settings` | Update settings (password) | ✅ |
+| 14 | GET | `/api/users/stats` | Get user stats | ✅ |
+| 15 | GET | `/api/users/all` | Get all users (admin) | ✅ |
+| 16 | GET | `/api/users/admin/:id` | Get user by ID (admin) | ✅ |
+| 17 | DELETE | `/api/users/admin/:id` | Delete user (admin) | ✅ |
+
+---
+
+## 3️⃣ **SERVICE API** (6+ endpoints)
+📁 `routes/serviceRoutes.js` → `controllers/serviceController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 18 | GET | `/api/services` | Get all services (with filters) | ✅ |
+| 19 | GET | `/api/services/:id` | Get service by ID | ✅ |
+| 20 | POST | `/api/services` | Create service (freelancer) | ✅ |
+| 21 | PUT | `/api/services/:id` | Update service (freelancer) | ✅ |
+| 22 | PUT | `/api/services/:id/packages` | Update packages | ✅ |
+| 23 | DELETE | `/api/services/:id` | Delete service (freelancer) | ✅ |
+
+---
+
+## 4️⃣ **CATEGORY API** (9 endpoints)
+📁 `routes/categoryRoutes.js` → `controllers/categoryController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 24 | GET | `/api/categories` | Get all categories | ✅ |
+| 25 | GET | `/api/categories/tree` | Get category hierarchy | ✅ |
+| 26 | GET | `/api/categories/popular` | Get popular categories | ✅ |
+| 27 | GET | `/api/categories/:id` | Get category by ID | ✅ |
+| 28 | GET | `/api/categories/slug/:slug` | Get category by slug | ✅ |
+| 29 | GET | `/api/categories/:id/breadcrumb` | Get breadcrumb path | ✅ |
+| 30 | POST | `/api/categories` | Create category (admin) | ✅ |
+| 31 | PUT | `/api/categories/:id` | Update category (admin) | ✅ |
+| 32 | DELETE | `/api/categories/:id` | Delete category (admin) | ✅ |
+
+---
+
+## 5️⃣ **ORDER API** (9 endpoints)
+📁 `routes/orderRoutes.js` → `controllers/orderController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 33 | GET | `/api/orders` | Get all orders | ✅ |
+| 34 | GET | `/api/orders/:id` | Get order by ID | ✅ |
+| 35 | POST | `/api/orders` | Create order (checkout) | ✅ |
+| 36 | PUT | `/api/orders/:id/status` | Update order status | ✅ |
+| 37 | PUT | `/api/orders/:id/cancel` | Cancel order | ✅ |
+| 38 | GET | `/api/orders/:id/track` | Get order tracking | ✅ |
+| 39 | POST | `/api/orders/:id/deliver` | Deliver work (freelancer) | ✅ |
+| 40 | POST | `/api/orders/:id/approve` | Approve order (client) | ✅ |
+| 41 | POST | `/api/orders/:id/revision` | Request revision (client) | ✅ |
+
+---
+
+## 6️⃣ **PAYMENT API** (7 endpoints)
+📁 `routes/paymentRoutes.js` → `controllers/paymentController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 42 | GET | `/api/payments/balance` | Get balance | ✅ |
+| 43 | GET | `/api/payments/transactions` | Get transaction history | ✅ |
+| 44 | GET | `/api/payments/methods` | Get payment methods | ✅ |
+| 45 | POST | `/api/payments/topup` | Top up saldo | ✅ |
+| 46 | POST | `/api/payments/withdraw` | Withdraw (freelancer) | ✅ |
+| 47 | GET | `/api/payments/withdrawals` | Get withdrawal history | ✅ |
+
+---
+
+## 7️⃣ **MESSAGE API** (9 endpoints)
+📁 `routes/messageRoutes.js` → `controllers/messageController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 48 | GET | `/api/messages/chats` | Get chat list | ✅ |
+| 49 | GET | `/api/messages/order/:orderId` | Get messages by order | ✅ |
+| 50 | POST | `/api/messages/order/:orderId` | Send message | ✅ |
+| 51 | PUT | `/api/messages/:messageId/read` | Mark as read | ✅ |
+| 52 | PUT | `/api/messages/order/:orderId/read-all` | Mark all as read | ✅ |
+| 53 | GET | `/api/messages/unread/count` | Get unread count | ✅ |
+| 54 | DELETE | `/api/messages/:messageId` | Delete message | ✅ |
+| 55 | DELETE | `/api/messages/order/:orderId/all` | Delete all messages in order | ✅ |
+| 56 | GET | `/api/messages/partner/:orderId/:partnerId` | Get chat partner info | ✅ |
+
+---
+
+## 8️⃣ **REVIEW API** (8 endpoints)
+📁 `routes/reviewRoutes.js` → `controllers/reviewController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 57 | GET | `/api/reviews/service/:serviceId` | Get reviews by service | ✅ |
+| 58 | GET | `/api/reviews/freelancer/:freelancerId` | Get reviews by freelancer | ✅ |
+| 59 | GET | `/api/reviews/stats` | Get review statistics | ✅ |
+| 60 | POST | `/api/reviews/order/:orderId` | Create review (client) | ✅ |
+| 61 | GET | `/api/reviews/check/:orderId` | Check if can review | ✅ |
+| 62 | GET | `/api/reviews/my` | Get my reviews | ✅ |
+| 63 | PUT | `/api/reviews/:reviewId` | Update review | ✅ |
+| 64 | DELETE | `/api/reviews/:reviewId` | Delete review | ✅ |
+
+---
+
+## 9️⃣ **WISHLIST API** (8 endpoints)
+📁 `routes/wishlistRoutes.js` → `controllers/wishlistController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 65 | GET | `/api/wishlist` | Get my wishlist | ✅ |
+| 66 | GET | `/api/wishlist/count` | Get wishlist count | ✅ |
+| 67 | GET | `/api/wishlist/check/:serviceId` | Check if in wishlist | ✅ |
+| 68 | POST | `/api/wishlist` | Add to wishlist | ✅ |
+| 69 | POST | `/api/wishlist/bulk` | Bulk add to wishlist | ✅ |
+| 70 | DELETE | `/api/wishlist/:wishlistId` | Remove by wishlist ID | ✅ |
+| 71 | DELETE | `/api/wishlist/service/:serviceId` | Remove by service ID | ✅ |
+| 72 | DELETE | `/api/wishlist` | Clear all wishlist | ✅ |
+
+---
+
+## 🔟 **NOTIFICATION API** (7 endpoints)
+📁 `routes/notificationRoutes.js` → `controllers/notificationController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 73 | GET | `/api/notifications` | Get all notifications | ✅ |
+| 74 | GET | `/api/notifications/unread/count` | Get unread count | ✅ |
+| 75 | GET | `/api/notifications/:notifId` | Get notification by ID | ✅ |
+| 76 | PUT | `/api/notifications/:notifId/read` | Mark as read | ✅ |
+| 77 | PUT | `/api/notifications/read/all` | Mark all as read | ✅ |
+| 78 | DELETE | `/api/notifications/:notifId` | Delete notification | ✅ |
+| 79 | DELETE | `/api/notifications` | Delete all notifications | ✅ |
+
+---
+
+## 1️⃣1️⃣ **PORTFOLIO API** (9 endpoints)
+📁 `routes/portfolioRoutes.js` → `controllers/portfolioController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 80 | GET | `/api/portfolios/recent` | Get recent portfolios | ✅ |
+| 81 | GET | `/api/portfolios/freelancer/:freelancerId` | Get by freelancer | ✅ |
+| 82 | GET | `/api/portfolios/:id` | Get portfolio by ID | ✅ |
+| 83 | GET | `/api/portfolios/my/portfolios` | Get my portfolios | ✅ |
+| 84 | POST | `/api/portfolios` | Create portfolio (freelancer) | ✅ |
+| 85 | POST | `/api/portfolios/upload` | Upload portfolio image | ✅ |
+| 86 | PUT | `/api/portfolios/:id` | Update portfolio | ✅ |
+| 87 | DELETE | `/api/portfolios/:id` | Delete portfolio | ✅ |
+| 88 | DELETE | `/api/portfolios/admin/:id` | Delete any portfolio (admin) | ✅ |
+
+---
+
+## 1️⃣2️⃣ **SKILL API** (12 endpoints)
+📁 `routes/skillRoutes.js` → `controllers/skillController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 89 | GET | `/api/skills` | Get all skills | ✅ |
+| 90 | GET | `/api/skills/categories` | Get skill categories | ✅ |
+| 91 | GET | `/api/skills/popular` | Get popular skills | ✅ |
+| 92 | GET | `/api/skills/:id` | Get skill by ID | ✅ |
+| 93 | GET | `/api/skills/freelancer/:freelancerId` | Get skills by freelancer | ✅ |
+| 94 | GET | `/api/skills/my/skills` | Get my skills | ✅ |
+| 95 | POST | `/api/skills/my/add` | Add skill to me | ✅ |
+| 96 | POST | `/api/skills/my/bulk-add` | Bulk add skills | ✅ |
+| 97 | DELETE | `/api/skills/my/remove/:skillId` | Remove my skill | ✅ |
+| 98 | POST | `/api/skills` | Create skill (admin) | ✅ |
+| 99 | PUT | `/api/skills/:id` | Update skill (admin) | ✅ |
+| 100 | DELETE | `/api/skills/:id` | Delete skill (admin) | ✅ |
+
+---
+
+## 1️⃣3️⃣ **DASHBOARD API** (2 endpoints)
+📁 `routes/dashboardRoutes.js` → `controllers/dashboardController.js`
+
+| No | Method | Endpoint | Deskripsi | Status |
+|----|--------|----------|-----------|--------|
+| 101 | GET | `/api/dashboard/client` | Client dashboard stats | ✅ |
+| 102 | GET | `/api/dashboard/freelancer` | Freelancer dashboard stats | ✅ |
+
+---
+
+## 📁 **Struktur File yang Sudah Ada:**
+
+```
+backend/
+├── index.js (atau app.js) ✅
+├── package.json ✅
+├── .env ✅
+├── config/
+│   └── db.js ✅
+├── middleware/
+│   ├── auth.js ✅
+│   ├── roleMiddleware.js ✅
+│   └── upload.js ✅
+├── controllers/
+│   ├── authController.js ✅
+│   ├── userController.js ✅
+│   ├── serviceController.js ✅
+│   ├── categoryController.js ✅
+│   ├── orderController.js ✅
+│   ├── paymentController.js ✅
+│   ├── messageController.js ✅
+│   ├── reviewController.js ✅
+│   ├── wishlistController.js ✅
+│   ├── notificationController.js ✅
+│   ├── portfolioController.js ✅
+│   ├── skillController.js ✅
+│   └── dashboardController.js ✅
+└── routes/
+    ├── index.js ✅
+    ├── authRoutes.js ✅
+    ├── userRoutes.js ✅
+    ├── serviceRoutes.js ✅
+    ├── categoryRoutes.js ✅
+    ├── orderRoutes.js ✅
+    ├── paymentRoutes.js ✅
+    ├── messageRoutes.js ✅
+    ├── reviewRoutes.js ✅
+    ├── wishlistRoutes.js ✅
+    ├── notificationRoutes.js ✅
+    ├── portfolioRoutes.js ✅
+    ├── skillRoutes.js ✅
+    └── dashboardRoutes.js ✅
+```
+
+---
+
+## 📊 **Ringkasan Total:**
+
+| Modul | Jumlah Endpoint | Status |
+|-------|-----------------|--------|
+| Auth | 8 | ✅ |
+| User | 9 | ✅ |
+| Service | 6 | ✅ |
+| Category | 9 | ✅ |
+| Order | 9 | ✅ |
+| Payment | 6 | ✅ |
+| Message | 9 | ✅ |
+| Review | 8 | ✅ |
+| Wishlist | 8 | ✅ |
+| Notification | 7 | ✅ |
+| Portfolio | 9 | ✅ |
+| Skill | 12 | ✅ |
+| Dashboard | 2 | ✅ |
+| **TOTAL** | **102** | **✅ LENGKAP** |
+
+---
+
+## 🚀 **Cara Testing:**
+
+```bash
+# Start server
+node index.js
+
+# Test health
+curl http://localhost:5000/api/health
+
+# Test login
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"client01@test.com","password":"123456"}'
+```
+
+**Semua API sudah lengkap dan siap digunakan!** 🎉

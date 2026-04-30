@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import { Search, CheckCircle, Shield, Zap, Check } from 'lucide-react';
+import { useState } from 'react';
 import { DB_CATEGORIES } from '../data/mockDatabase';
 import { classNames } from '../data/helpers';
 import Button from '../components/ui/Button';
@@ -17,34 +17,48 @@ const HomeView = ({ navigate }) => {
         ></div>
 
         <div className="relative z-10 max-w-4xl mx-auto px-4 w-full text-center sm:text-left pt-20">
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-6">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight mb-6">
             Temukan layanan freelance <br className="hidden md:block"/> <span className="font-serif italic text-emerald-300">sempurna</span> untuk bisnis Anda
-        </h1>
+          </h1>
 
-        {/* Hapus mx-auto di sini, tambahkan sm:mx-0 biar rata kiri di desktop */}
-        <div className="bg-white rounded-2xl p-2 flex w-full max-w-3xl shadow-2xl mb-8 border-2 border-transparent focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/20 transition-all sm:mx-0 mx-auto">
+          <div className="bg-white rounded-2xl p-2 flex w-full max-w-3xl shadow-2xl mb-8 border-2 border-transparent focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/20 transition-all sm:mx-0 mx-auto">
             <div className="flex-1 flex items-center px-4">
-            <Search className="w-6 h-6 text-gray-400 mr-3 flex-shrink-0" />
-            <input
+              <Search className="w-6 h-6 text-gray-400 mr-3 flex-shrink-0" />
+              <input
                 type="text"
                 placeholder="Cari layanan (mis. 'Desain Logo', 'Buat Website')..."
                 className="w-full text-gray-900 font-medium border-none outline-none focus:outline-none focus:ring-0 py-3 text-lg bg-transparent"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && navigate(`/explore?q=${encodeURIComponent(search)}`)}
-            />
+              />
             </div>
             <Button size="lg" className="rounded-xl px-8 text-lg shadow-md" onClick={() => navigate(`/explore?q=${encodeURIComponent(search)}`)}>
-            Cari
+              Cari
             </Button>
-        </div>
+          </div>
 
-        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-sm text-white font-bold">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-sm text-white font-bold">
             <span className="opacity-80 font-medium">Populer:</span>
             <button onClick={() => navigate('/explore')} className="border border-white/40 rounded-full px-4 py-1 hover:bg-white hover:text-emerald-900 transition-colors shadow-sm">Website Builder</button>
             <button onClick={() => navigate('/explore')} className="border border-white/40 rounded-full px-4 py-1 hover:bg-white hover:text-emerald-900 transition-colors shadow-sm">Logo Design</button>
             <button onClick={() => navigate('/explore')} className="border border-white/40 rounded-full px-4 py-1 hover:bg-white hover:text-emerald-900 transition-colors shadow-sm">SEO Optimization</button>
+          </div>
         </div>
+
+        {/* Wave Bottom */}
+        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none z-20">
+          <svg
+            viewBox="0 0 1440 80"
+            xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="none"
+            className="w-full h-16 md:h-20"
+          >
+            <path
+              d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z"
+              fill="#f9fafb"
+            />
+          </svg>
         </div>
       </div>
 

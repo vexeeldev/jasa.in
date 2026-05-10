@@ -16,7 +16,6 @@ Berdasarkan project UAS kamu, ini alur pengerjaan yang **paling efektif** dari a
 | **5** | Middleware Auth | - | Proteksi endpoint lain |
 
 **✅ Selesai:** User bisa register, login, dan lihat profil sendiri.
-
 ---
 
 ## 🎯 **Tahap 2: Core Business (Hari 3-4)**

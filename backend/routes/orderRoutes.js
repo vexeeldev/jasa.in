@@ -3,6 +3,8 @@ const router = express.Router();
 const orderController = require('../controllers/orderController');
 const authMiddleware = require('../middleware/auth');
 const { isClient, isFreelancer } = require('../middleware/roleMiddleware');
+const multer = require('multer');
+const path = require('path');
 
 // Semua route order memerlukan authentication
 router.use(authMiddleware);
@@ -37,5 +39,23 @@ router.post('/:id/approve', isClient, orderController.approveOrder);
 
 // Request revision (client only)
 router.post('/:id/revision', isClient, orderController.requestRevision);
+
+// Deliver work (freelancer only)
+router.post('/:id/deliver',  isFreelancer, orderController.deliverWork);
+
+// Setup storage (pindahkan dari controller ke route atau tetap di controller)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
+
+// Route untuk upload file
+router.post('/upload-file', authMiddleware, upload.single('file'), orderController.uploadFile);
 
 module.exports = router;

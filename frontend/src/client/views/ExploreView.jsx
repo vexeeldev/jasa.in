@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, ChevronLeft, ChevronRight, Menu, Filter, SlidersHorizontal, Clock, Star, TrendingUp, Shield } from 'lucide-react';
-import { DB_CATEGORIES } from '../data/mockDatabase';
-import { hydratedServices, formatCurrency, classNames } from '../data/helpers';
+import { Heart, ChevronRight, Menu, Filter, SlidersHorizontal, Clock, Star, TrendingUp, Shield, Loader2 } from 'lucide-react';
+import { formatCurrency } from '../data/helpers';
 import Avatar from '../components/ui/Avatar';
 import RatingStars from '../components/ui/RatingStars';
+import { Navigate, useNavigate } from 'react-router-dom';
 
-const ClientExploreView = ({ navigate, viewParams }) => {
+const API_BASE_URL = 'http://localhost:5000/api';
+
+const ClientExploreView = ({ viewParams }) => {
+  const navigate = useNavigate();
   const searchQuery = viewParams?.q || '';
   const categorySlug = viewParams?.category || '';
-  const services = hydratedServices;
+  
+  // State
+  const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [visibleServices, setVisibleServices] = useState(12);
   
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState(categorySlug);
@@ -18,71 +26,93 @@ const ClientExploreView = ({ navigate, viewParams }) => {
   const [selectedSort, setSelectedSort] = useState('recommended');
   const [showProOnly, setShowProOnly] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [visibleServices, setVisibleServices] = useState(12);
   const [wishlist, setWishlist] = useState([]);
-
-  // Apply filters
-  const filteredServices = services.filter(service => {
-    // Search filter
-    if (searchQuery && !service.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
+  
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+  
+  // Fetch services when filters change
+  useEffect(() => {
+    fetchServices();
+  }, [searchQuery, selectedCategory, selectedFreelancerLevel, selectedBudget, selectedDelivery, selectedSort, showProOnly]);
+  
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/categories`);
+      const data = await response.json();
+      
+      if (data.success && data.data && data.data.length > 0) {
+        const allCategories = data.data.filter(cat => cat.SLUG);
+        setCategories(allCategories);
+      } else {
+        setCategories([
+          { CATEGORY_ID: 1, NAME: 'Design', SLUG: 'design' },
+          { CATEGORY_ID: 2, NAME: 'Programming', SLUG: 'programming' },
+          { CATEGORY_ID: 3, NAME: 'Marketing', SLUG: 'marketing' },
+          { CATEGORY_ID: 21, NAME: 'UI/UX Design', SLUG: 'ui/ux' },
+          { CATEGORY_ID: 22, NAME: 'Web Development', SLUG: 'webdev' },
+          { CATEGORY_ID: 23, NAME: 'Logo Design', SLUG: 'logo' }
+        ]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+      setCategories([
+        { CATEGORY_ID: 1, NAME: 'Design', SLUG: 'design' },
+        { CATEGORY_ID: 2, NAME: 'Programming', SLUG: 'programming' },
+        { CATEGORY_ID: 3, NAME: 'Marketing', SLUG: 'marketing' }
+      ]);
     }
-    
-    // Category filter
-    if (selectedCategory && service.category_slug !== selectedCategory) {
-      return false;
+  };
+  
+  const fetchServices = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('page', 1);
+      params.append('limit', 100); // Ambil banyak dulu, biar filter jalan di frontend
+      
+      if (searchQuery) params.append('search', searchQuery);
+      if (selectedCategory) params.append('category', selectedCategory);
+      if (selectedFreelancerLevel) params.append('level', selectedFreelancerLevel);
+      if (selectedBudget) params.append('budget', selectedBudget);
+      if (selectedDelivery) params.append('delivery', selectedDelivery);
+      if (selectedSort && selectedSort !== 'recommended') params.append('sort', selectedSort);
+      if (showProOnly) params.append('level', 'top');
+      
+      console.log('Fetching with params:', params.toString());
+      
+      const response = await fetch(`${API_BASE_URL}/services?${params.toString()}`);
+      const data = await response.json();
+      
+      console.log('Total services from API:', data.data?.length || 0);
+      
+      if (data.success) {
+        setServices(data.data || []);
+        setVisibleServices(12); // Reset visible services saat filter berubah
+      }
+    } catch (error) {
+      console.error('Failed to fetch services:', error);
+      setServices([]);
+    } finally {
+      setLoading(false);
     }
-    
-    // Freelancer level filter
-    if (selectedFreelancerLevel) {
-      if (selectedFreelancerLevel === 'top' && service.seller.level !== 'top') return false;
-      if (selectedFreelancerLevel === 'high' && !['high', 'top'].includes(service.seller.level)) return false;
-      if (selectedFreelancerLevel === 'new' && service.seller.level !== 'new') return false;
-    }
-    
-    // Budget filter
-    if (selectedBudget) {
-      const price = service.packages.basic?.price || 0;
-      if (selectedBudget === 'under-500k' && price >= 500000) return false;
-      if (selectedBudget === '500k-2m' && (price < 500000 || price > 2000000)) return false;
-      if (selectedBudget === 'above-2m' && price <= 2000000) return false;
-    }
-    
-    // Delivery filter
-    if (selectedDelivery) {
-      const delivery = service.packages.basic?.delivery_days || 7;
-      if (selectedDelivery === '24h' && delivery > 1) return false;
-      if (selectedDelivery === '3d' && delivery > 3) return false;
-      if (selectedDelivery === '7d' && delivery > 7) return false;
-    }
-    
-    // Pro only filter
-    if (showProOnly && service.seller.level !== 'top') return false;
-    
-    return true;
-  });
-
-  // Sort services
-  const sortedServices = [...filteredServices].sort((a, b) => {
-    switch(selectedSort) {
-      case 'popular':
-        return (b.total_orders || 0) - (a.total_orders || 0);
-      case 'rating':
-        return (b.seller.rating_avg || 0) - (a.seller.rating_avg || 0);
-      case 'price-low':
-        return (a.packages.basic?.price || 0) - (b.packages.basic?.price || 0);
-      case 'price-high':
-        return (b.packages.basic?.price || 0) - (a.packages.basic?.price || 0);
-      case 'newest':
-        return (b.created_at || 0) - (a.created_at || 0);
-      default:
-        return 0; // recommended
-    }
-  });
-
-  const paginatedServices = sortedServices.slice(0, visibleServices);
-  const hasMore = visibleServices < sortedServices.length;
-
+  };
+  
+  const resetFilters = () => {
+    setSelectedCategory('');
+    setSelectedFreelancerLevel('');
+    setSelectedBudget('');
+    setSelectedDelivery('');
+    setSelectedSort('recommended');
+    setShowProOnly(false);
+  };
+  
+  const loadMore = () => {
+    setVisibleServices(prev => prev + 12);
+  };
+  
   const toggleWishlist = (serviceId, e) => {
     e.stopPropagation();
     if (wishlist.includes(serviceId)) {
@@ -91,7 +121,18 @@ const ClientExploreView = ({ navigate, viewParams }) => {
       setWishlist([...wishlist, serviceId]);
     }
   };
-
+  
+  const displayedServices = services.slice(0, visibleServices);
+  const hasMore = visibleServices < services.length;
+  
+  if (loading && services.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+  
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Header */}
@@ -100,16 +141,16 @@ const ClientExploreView = ({ navigate, viewParams }) => {
           {searchQuery 
             ? `Hasil pencarian "${searchQuery}"` 
             : selectedCategory 
-              ? `Jasa ${selectedCategory}` 
+              ? `Jasa ${categories.find(c => c.SLUG === selectedCategory)?.NAME || selectedCategory}` 
               : 'Temukan Jasa Freelance Berkualitas'}
         </h1>
         <p className="text-gray-500 font-medium">
           {searchQuery 
-            ? `Menampilkan ${filteredServices.length} layanan untuk "${searchQuery}"`
-            : 'Ribuan freelancer siap membantu mewujudkan ide Anda'}
+            ? `Menampilkan ${services.length} layanan untuk "${searchQuery}"`
+            : `${services.length} layanan tersedia dari freelancer terbaik`}
         </p>
       </div>
-
+      
       {/* Mobile Filter Button */}
       <div className="lg:hidden mb-4">
         <button 
@@ -123,9 +164,9 @@ const ClientExploreView = ({ navigate, viewParams }) => {
           <ChevronRight className={`w-5 h-5 transition-transform ${isFilterOpen ? 'rotate-90' : ''}`} />
         </button>
       </div>
-
+      
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Filters Sidebar - Desktop */}
+        {/* Filters Sidebar */}
         <div className={`lg:w-64 flex-shrink-0 ${isFilterOpen ? 'block' : 'hidden lg:block'}`}>
           <div className="sticky top-28 space-y-6">
             {/* Categories */}
@@ -143,20 +184,20 @@ const ClientExploreView = ({ navigate, viewParams }) => {
                 >
                   Semua Kategori
                 </button>
-                {DB_CATEGORIES.filter(c => c.parent_id !== null).slice(0, 10).map(cat => (
+                {categories.slice(0, 10).map(cat => (
                   <button
-                    key={cat.category_id}
-                    onClick={() => setSelectedCategory(cat.slug)}
+                    key={cat.CATEGORY_ID}
+                    onClick={() => setSelectedCategory(cat.SLUG)}
                     className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
-                      selectedCategory === cat.slug ? 'bg-emerald-50 text-emerald-700 font-bold' : 'hover:bg-gray-50'
+                      selectedCategory === cat.SLUG ? 'bg-emerald-50 text-emerald-700 font-bold' : 'hover:bg-gray-50'
                     }`}
                   >
-                    {cat.name}
+                    {cat.NAME}
                   </button>
                 ))}
               </div>
             </div>
-
+            
             {/* Freelancer Level */}
             <div>
               <h3 className="font-black text-gray-900 mb-3 flex items-center">
@@ -182,7 +223,7 @@ const ClientExploreView = ({ navigate, viewParams }) => {
                 ))}
               </div>
             </div>
-
+            
             {/* Budget Range */}
             <div>
               <h3 className="font-black text-gray-900 mb-3">💰 Anggaran</h3>
@@ -205,7 +246,7 @@ const ClientExploreView = ({ navigate, viewParams }) => {
                 ))}
               </div>
             </div>
-
+            
             {/* Delivery Time */}
             <div>
               <h3 className="font-black text-gray-900 mb-3 flex items-center">
@@ -231,17 +272,11 @@ const ClientExploreView = ({ navigate, viewParams }) => {
                 ))}
               </div>
             </div>
-
+            
             {/* Reset Filters */}
             {(selectedCategory || selectedFreelancerLevel || selectedBudget || selectedDelivery || showProOnly) && (
               <button
-                onClick={() => {
-                  setSelectedCategory('');
-                  setSelectedFreelancerLevel('');
-                  setSelectedBudget('');
-                  setSelectedDelivery('');
-                  setShowProOnly(false);
-                }}
+                onClick={resetFilters}
                 className="w-full py-2 text-sm text-emerald-600 font-bold hover:underline"
               >
                 Reset Semua Filter
@@ -249,14 +284,14 @@ const ClientExploreView = ({ navigate, viewParams }) => {
             )}
           </div>
         </div>
-
+        
         {/* Main Content */}
         <div className="flex-1">
           {/* Sorting and Results Info */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-gray-200">
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600 font-medium">
-                Menampilkan <span className="font-bold text-gray-900">{filteredServices.length}</span> layanan
+                Menampilkan <span className="font-bold text-gray-900">{displayedServices.length}</span> dari <span className="font-bold text-gray-900">{services.length}</span> layanan
               </span>
               
               {/* Pro Only Toggle */}
@@ -272,7 +307,7 @@ const ClientExploreView = ({ navigate, viewParams }) => {
                 Pro Services Only
               </button>
             </div>
-
+            
             {/* Sort Dropdown */}
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-gray-400" />
@@ -290,21 +325,15 @@ const ClientExploreView = ({ navigate, viewParams }) => {
               </select>
             </div>
           </div>
-
+          
           {/* Services Grid */}
-          {paginatedServices.length === 0 ? (
+          {services.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-6xl mb-4">🔍</div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Tidak ada layanan yang ditemukan</h3>
               <p className="text-gray-500">Coba ubah filter atau kata kunci pencarian Anda</p>
               <button
-                onClick={() => {
-                  setSelectedCategory('');
-                  setSelectedFreelancerLevel('');
-                  setSelectedBudget('');
-                  setSelectedDelivery('');
-                  setShowProOnly(false);
-                }}
+                onClick={resetFilters}
                 className="mt-4 px-6 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700"
               >
                 Reset Filter
@@ -313,62 +342,62 @@ const ClientExploreView = ({ navigate, viewParams }) => {
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {paginatedServices.map((service) => (
+                {displayedServices.map((service) => (
                   <div 
-                    key={service.service_id} 
+                    key={service.SERVICE_ID} 
                     className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col group cursor-pointer"
-                    onClick={() => navigate('service-detail', { id: service.service_id })}
+                    onClick={() => navigate('/client/service/' + service.SERVICE_ID)}
                   >
                     <div className="relative h-48 overflow-hidden bg-gray-100">
                       <img 
-                        src={service.thumbnail_url} 
-                        alt={service.title} 
+                        src={service.THUMBNAIL_URL || 'https://images.unsplash.com/photo-1618761714954-0b8cd0026356?auto=format&fit=crop&w=800&q=80'} 
+                        alt={service.TITLE} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                       />
                       <button 
                         className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full text-gray-400 hover:text-red-500 hover:scale-110 transition-all z-10 shadow-sm"
-                        onClick={(e) => toggleWishlist(service.service_id, e)}
+                        onClick={(e) => toggleWishlist(service.SERVICE_ID, e)}
                       >
-                        <Heart className={`w-4 h-4 ${wishlist.includes(service.service_id) ? 'fill-red-500 text-red-500' : ''}`} />
+                        <Heart className={`w-4 h-4 ${wishlist.includes(service.SERVICE_ID) ? 'fill-red-500 text-red-500' : ''}`} />
                       </button>
-                      {service.seller.level === 'top' && (
+                      {service.FREELANCER_LEVEL === 'top' && (
                         <div className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
                           <Shield className="w-3 h-3 mr-1" />
                           PRO
                         </div>
                       )}
                     </div>
-
+                    
                     <div className="p-4 flex-grow flex flex-col">
                       <div className="flex items-center mb-3">
-                        <Avatar src={service.seller.avatar_url} size="sm" />
+                        <Avatar src={service.SELLER_AVATAR} size="sm" />
                         <div className="ml-2 flex flex-col">
-                          <span className="text-sm font-bold text-gray-900 hover:underline leading-none">{service.seller.full_name}</span>
+                          <span className="text-sm font-bold text-gray-900 hover:underline leading-none">{service.SELLER_NAME || 'Freelancer'}</span>
                           <div className="flex items-center gap-1 mt-1">
-                            <RatingStars rating={service.seller.rating_avg} size={12} />
-                            <span className="text-xs text-gray-500">({service.total_orders || 0})</span>
+                            <RatingStars rating={service.SELLER_RATING || 0} size={12} />
+                            <span className="text-xs text-gray-500">({service.SELLER_ORDERS || 0})</span>
                           </div>
                         </div>
                       </div>
-
+                      
                       <h3 className="text-sm font-semibold text-gray-800 leading-snug mb-2 hover:text-emerald-600 line-clamp-2">
-                        {service.title}
+                        {service.TITLE}
                       </h3>
-
+                      
                       {/* Package Info */}
                       <div className="mt-auto pt-3 border-t border-gray-100">
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="text-[10px] text-gray-400 uppercase font-bold">Mulai dari</p>
                             <span className="text-lg font-black text-gray-900">
-                              {formatCurrency(service.packages.basic?.price || 0)}
+                              {formatCurrency(service.MIN_PRICE || 0)}
                             </span>
                           </div>
-                          {service.packages.basic?.delivery_days && (
+                          {service.PACKAGES && service.PACKAGES[0]?.DELIVERY_DAYS && (
                             <div className="text-right">
                               <p className="text-[10px] text-gray-400 uppercase font-bold">Estimasi</p>
                               <span className="text-xs font-semibold text-gray-700">
-                                {service.packages.basic.delivery_days} hari
+                                {service.PACKAGES[0].DELIVERY_DAYS} hari
                               </span>
                             </div>
                           )}
@@ -378,15 +407,15 @@ const ClientExploreView = ({ navigate, viewParams }) => {
                   </div>
                 ))}
               </div>
-
-              {/* Load More */}
+              
+              {/* Load More Button */}
               {hasMore && (
                 <div className="text-center mt-12">
                   <button
-                    onClick={() => setVisibleServices(visibleServices + 12)}
+                    onClick={loadMore}
                     className="px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:border-emerald-600 hover:text-emerald-600 transition-colors"
                   >
-                    Muat Lebih Banyak
+                    Muat Lebih Banyak ({services.length - visibleServices} lagi)
                   </button>
                 </div>
               )}

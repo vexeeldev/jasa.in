@@ -28,4 +28,10 @@ router.post('/withdraw', isFreelancer, paymentController.withdraw);
 // Get withdrawal history
 router.get('/withdrawals', isFreelancer, paymentController.getWithdrawalHistory);
 
+// Check payment status (polling)
+router.get('/payment-status/:orderId', authMiddleware, paymentController.checkPaymentStatus);
+
+// Confirm payment via token (dari QR)
+router.post('/payment-confirm/:token', paymentController.confirmPayment);
+
 module.exports = router;

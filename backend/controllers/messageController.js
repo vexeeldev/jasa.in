@@ -518,3 +518,173 @@ exports.getChatPartner = async (req, res) => {
 exports.sendTypingIndicator = async (req, res) => {
   res.json({ success: true, message: 'Typing indicator sent' });
 };
+
+// ================= GET DIRECT CHAT LIST =================
+exports.getDirectChatList = async (req, res) => {
+  let connection;
+  try {
+    const userId = req.user.user_id;
+    
+    connection = await getConnection();
+    
+    const result = await connection.execute(
+      `SELECT DISTINCT 
+         m.chat_room_id,
+         CASE 
+           WHEN m.sender_id = :userId THEN m.receiver_id
+           ELSE m.sender_id
+         END as other_user_id,
+         u.full_name as other_user_name,
+         u.username as other_username,
+         u.avatar_url as other_user_avatar,
+         (SELECT content FROM MESSAGES 
+          WHERE chat_room_id = m.chat_room_id 
+          ORDER BY sent_at DESC FETCH FIRST 1 ROW ONLY) as last_message,
+         (SELECT sent_at FROM MESSAGES 
+          WHERE chat_room_id = m.chat_room_id 
+          ORDER BY sent_at DESC FETCH FIRST 1 ROW ONLY) as last_message_time,
+         (SELECT COUNT(*) FROM MESSAGES 
+          WHERE chat_room_id = m.chat_room_id AND receiver_id = :userId AND is_read = '0') as unread_count
+       FROM MESSAGES m
+       JOIN USERS u ON (CASE WHEN m.sender_id = :userId THEN m.receiver_id ELSE m.sender_id END) = u.user_id
+       WHERE m.chat_type = 'direct' 
+         AND (m.sender_id = :userId OR m.receiver_id = :userId)
+       ORDER BY last_message_time DESC NULLS LAST`,
+      { userId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    res.json({ success: true, data: result.rows });
+    
+  } catch (err) {
+    console.error('GET DIRECT CHAT LIST ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+
+// ================= GET OR CREATE DIRECT CHAT ROOM =================
+exports.getOrCreateDirectChat = async (req, res) => {
+  let connection;
+  try {
+    const userId = req.user.user_id;
+    const { otherUserId } = req.params;
+    
+    // 🔥 VALIDASI: Pastikan otherUserId adalah number
+    const otherUserIdNum = parseInt(otherUserId);
+    if (isNaN(otherUserIdNum)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID tidak valid' 
+      });
+    }
+    
+    // Buat chat_room_id unik
+    const roomId = [userId, otherUserIdNum].sort().join('-');
+    
+    connection = await getConnection();
+    
+    // Ambil info partner
+    const partnerResult = await connection.execute(
+      `SELECT user_id, full_name, username, avatar_url 
+       FROM USERS WHERE user_id = :otherUserId`,
+      { otherUserId: otherUserIdNum },  // 🔥 Pakai number
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    if (partnerResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+    }
+    
+    // Ambil pesan yang sudah ada
+    const messagesResult = await connection.execute(
+      `SELECT m.message_id, m.sender_id, m.receiver_id, m.content, m.sent_at,
+              u.full_name as sender_name, u.avatar_url as sender_avatar
+       FROM MESSAGES m
+       JOIN USERS u ON m.sender_id = u.user_id
+       WHERE m.chat_room_id = :roomId AND m.chat_type = 'direct'
+       ORDER BY m.sent_at ASC`,
+      { roomId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        room_id: roomId,
+        partner: partnerResult.rows[0],
+        messages: messagesResult.rows
+      }
+    });
+    
+  } catch (err) {
+    console.error('GET OR CREATE DIRECT CHAT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+// ================= SEND DIRECT MESSAGE =================
+exports.sendDirectMessage = async (req, res) => {
+  let connection;
+  try {
+    const { roomId } = req.params;
+    const { content } = req.body;
+    const senderId = req.user.user_id;
+    
+    if (!content || content.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Pesan tidak boleh kosong' });
+    }
+    
+    connection = await getConnection();
+    
+    // 🔥 Parse roomId dengan aman
+    const ids = roomId.split('-').map(id => parseInt(id));
+    if (ids.length !== 2 || ids.some(isNaN)) {
+      return res.status(400).json({ success: false, message: 'Room ID tidak valid' });
+    }
+    
+    const receiverId = ids[0] === senderId ? ids[1] : ids[0];
+    
+    const result = await connection.execute(
+      `INSERT INTO MESSAGES 
+       (sender_id, receiver_id, content, chat_type, chat_room_id, is_read)
+       VALUES (:senderId, :receiverId, :content, 'direct', :roomId, '0')
+       RETURNING message_id INTO :message_id`,
+      {
+        senderId,
+        receiverId,
+        content,
+        roomId,
+        message_id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+      }
+    );
+    
+    const messageId = result.outBinds.message_id[0];
+    
+    await connection.commit();
+    
+    const newMessage = await connection.execute(
+      `SELECT m.*, u.full_name as sender_name, u.avatar_url as sender_avatar
+       FROM MESSAGES m
+       JOIN USERS u ON m.sender_id = u.user_id
+       WHERE m.message_id = :messageId`,
+      { messageId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    res.json({
+      success: true,
+      message: 'Pesan berhasil dikirim',
+      data: newMessage.rows[0]
+    });
+    
+  } catch (err) {
+    if (connection) await connection.rollback();
+    console.error('SEND DIRECT MESSAGE ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+  } finally {
+    if (connection) await connection.close();
+  }
+};

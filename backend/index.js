@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./config/db');
+const { getConnection } = db;
+const path = require('path');
+const oracledb = require('oracledb');
 
 // Import main router
 const apiRoutes = require('./routes');
@@ -12,8 +15,9 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARE
 // =====================
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
@@ -30,6 +34,67 @@ app.get('/', (req, res) => {
   });
 });
 
+app.use((req, res, next) => {
+  req.headers['ngrok-skip-browser-warning'] = 'any-value';
+  next();
+});
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+app.get('/client/pay/:token', async (req, res) => {
+  const { token } = req.params;
+  let connection;
+  
+  try {
+    connection = await getConnection();
+    
+    const result = await connection.execute(
+      `SELECT status FROM ORDERS WHERE payment_token = :token`,
+      { token },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).send(`
+        <html><body>
+          <h1>Token tidak valid</h1>
+          <p>Token: ${token}</p>
+          <a href="/client/orders">Lihat Pesanan Saya</a>
+        </body></html>
+      `);
+    }
+    
+    const status = result.rows[0].STATUS;
+    
+    // Jika sudah bukan waiting_payment, redirect
+    if (status !== 'waiting_payment') {
+      return res.redirect('/client/orders');
+    }
+    
+    // Kirim file HTML
+    const htmlPath = path.join(__dirname, 'views', 'payment.html');
+    console.log('📄 Serving HTML from:', htmlPath);
+    res.sendFile(htmlPath);
+    
+  } catch (err) {
+    console.error('Payment page error:', err);
+    res.status(500).send(`
+      <html><body>
+        <h1>Error</h1>
+        <p>${err.message}</p>
+      </body></html>
+    `);
+  } finally {
+    if (connection) await connection.close();
+  }
+});
+
+
+app.post('/api/payments/payment-confirm/:token', (req, res) => {
+  // panggil langsung controller
+  const paymentController = require('./controllers/paymentController');
+  paymentController.confirmPayment(req, res);
+});
 // Gunakan routes/index.js untuk semua API
 app.use('/api', apiRoutes);
 

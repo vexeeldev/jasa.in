@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
-import { CreditCard, Shield, Paperclip, Wallet, Building2, QrCode, AlertCircle, ChevronRight, Clock, FileText } from 'lucide-react';
-import { DB_SERVICE_PACKAGES, DB_SERVICES } from '../data/mockDatabase';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { CreditCard, Shield, Paperclip, Wallet, Building2, QrCode, AlertCircle, ChevronRight, Clock, FileText, Loader2 } from 'lucide-react';
 import { formatCurrency } from '../data/helpers';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
 import Textarea from '../components/ui/Textarea';
-import { useAuth } from '../../App'; // Import auth context
+import { useAuth } from '../../App';
 
-const ClientCheckoutView = ({ navigate, viewParams }) => {
+const API_BASE_URL = 'http://localhost:5000/api';
+
+const ClientCheckoutView = () => {
+  const { packageId } = useParams();
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const packageId = viewParams?.packageId || 803;
-  const pkg = DB_SERVICE_PACKAGES.find(p => p.package_id === packageId);
-  const service = DB_SERVICES.find(s => s.service_id === pkg?.service_id);
+  
+  const [loading, setLoading] = useState(true);
+  const [packageData, setPackageData] = useState(null);
+  const [serviceData, setServiceData] = useState(null);
+  const [balance, setBalance] = useState(0);
   
   const [selectedPayment, setSelectedPayment] = useState('balance');
   const [requirements, setRequirements] = useState('');
@@ -20,12 +26,61 @@ const ClientCheckoutView = ({ navigate, viewParams }) => {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!pkg || !service) return <div className="p-20 text-center font-bold text-xl text-gray-500">Paket tidak ditemukan</div>;
+  useEffect(() => {
+    fetchData();
+    fetchBalance();
+  }, [packageId]);
 
-  const serviceFee = pkg.price * 0.05;
-  const total = pkg.price + serviceFee;
-  const userBalance = currentUser?.balance || 0;
-  const hasEnoughBalance = userBalance >= total;
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Ambil semua services (dengan limit besar)
+      const servicesRes = await fetch(`${API_BASE_URL}/services?limit=100`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const servicesData = await servicesRes.json();
+      
+      if (servicesData.success) {
+        // Cari package berdasarkan packageId
+        let foundPackage = null;
+        let foundService = null;
+        
+        for (const service of servicesData.data) {
+          const pkg = service.PACKAGES?.find(p => p.PACKAGE_ID === parseInt(packageId));
+          if (pkg) {
+            foundPackage = pkg;
+            foundService = service;
+            break;
+          }
+        }
+        
+        if (foundPackage) {
+          setPackageData(foundPackage);
+          setServiceData(foundService);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch checkout data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchBalance = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/payments/balance`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBalance(data.data.balance || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch balance:', error);
+    }
+  };
 
   const handleFileAttachment = (e) => {
     const files = Array.from(e.target.files);
@@ -43,25 +98,80 @@ const ClientCheckoutView = ({ navigate, viewParams }) => {
       return;
     }
 
-    if (selectedPayment === 'balance' && !hasEnoughBalance) {
-      alert('Saldo tidak mencukupi. Silakan pilih metode pembayaran lain atau top up saldo terlebih dahulu.');
+    if (selectedPayment === 'balance' && balance < (packageData?.PRICE || 0)) {
+      alert('Saldo tidak mencukupi. Silakan top up terlebih dahulu.');
       return;
     }
 
     setIsProcessing(true);
     
-    // Simulasi proses pembayaran
-    setTimeout(() => {
-      // TODO: Kirim data ke backend
-      // - order data
-      // - requirements
-      // - attachments
-      // - payment method
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          package_id: parseInt(packageId),
+          requirements: requirements,
+          payment_method: selectedPayment
+        })
+      });
       
+      const data = await response.json();
+      
+      if (data.success) {
+          // 🔥 Jika pakai saldo, langsung ke orders
+        if (selectedPayment === 'balance') {
+          navigate('/client/orders');
+        } 
+        // 🔥 Jika bank transfer / qris, ke halaman instruksi
+        else {
+          navigate('/client/payment-instruction', {
+            state: {
+              orderId: data.data.order_id,
+              amount: data.data.total_price,
+              method: selectedPayment,
+              paymentToken: data.data.payment_token
+            }
+          });
+        }
+      } else {
+        alert(data.message || 'Gagal membuat pesanan');
+      }
+    } catch (error) {
+      console.error('Order failed:', error);
+      alert('Terjadi kesalahan, silakan coba lagi');
+    } finally {
       setIsProcessing(false);
-      navigate('/client/orders'); // Redirect ke daftar pesanan client
-    }, 2000);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
+  if (!packageData || !serviceData) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-20 text-center">
+        <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold mb-2">Paket Tidak Ditemukan</h2>
+        <button onClick={() => navigate('/client/explore')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg">
+          Kembali ke Explore
+        </button>
+      </div>
+    );
+  }
+
+  const serviceFee = packageData.PRICE * 0.05;
+  const total = packageData.PRICE + serviceFee;
+  const hasEnoughBalance = balance >= total;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -71,18 +181,18 @@ const ClientCheckoutView = ({ navigate, viewParams }) => {
           Cari Jasa
         </span>
         <ChevronRight className="w-4 h-4 mx-2" />
-        <span className="hover:text-emerald-600 cursor-pointer" onClick={() => navigate(`/client/service/${service.service_id}`)}>
-          {service.title.substring(0, 30)}...
+        <span className="hover:text-emerald-600 cursor-pointer" onClick={() => navigate(`/client/service/${serviceData.SERVICE_ID}`)}>
+          {serviceData.TITLE?.substring(0, 30)}...
         </span>
         <ChevronRight className="w-4 h-4 mx-2" />
         <span className="text-emerald-600 font-semibold">Checkout</span>
       </div>
 
       <h1 className="text-3xl font-black text-gray-900 mb-2">Checkout Pesanan</h1>
-      <p className="text-gray-600 mb-8">Isi detail pesanan Anda dengan lengkap agar freelancer dapat mengerjakan sesuai kebutuhan</p>
+      <p className="text-gray-600 mb-8">Isi detail pesanan Anda dengan lengkap</p>
 
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Left Column - Form */}
+        {/* Left Column */}
         <div className="lg:w-2/3 space-y-6">
           
           {/* Requirements Section */}
@@ -96,7 +206,6 @@ const ClientCheckoutView = ({ navigate, viewParams }) => {
             </div>
             
             <Textarea
-              id="requirements"
               rows={6}
               placeholder={`Contoh detail kebutuhan:
 • Jenis desain yang diinginkan
@@ -112,12 +221,7 @@ const ClientCheckoutView = ({ navigate, viewParams }) => {
             {/* File Attachment */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-emerald-400 transition-colors">
               <label className="cursor-pointer block">
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileAttachment}
-                />
+                <input type="file" multiple className="hidden" onChange={handleFileAttachment} />
                 <div className="flex items-center justify-center text-gray-500">
                   <Paperclip className="w-5 h-5 mr-2" />
                   <span className="text-sm font-medium">Lampirkan file pendukung</span>
@@ -148,202 +252,108 @@ const ClientCheckoutView = ({ navigate, viewParams }) => {
             </div>
 
             <div className="space-y-3">
-              {/* Saldo Jasa.in */}
               <label className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                selectedPayment === 'balance' 
-                  ? 'border-emerald-500 bg-emerald-50' 
-                  : 'border-gray-200 hover:border-gray-300'
+                selectedPayment === 'balance' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200'
               }`}>
-                <input
-                  type="radio"
-                  name="payment"
-                  value="balance"
-                  checked={selectedPayment === 'balance'}
-                  onChange={(e) => setSelectedPayment(e.target.value)}
-                  className="mt-1 text-emerald-600 focus:ring-emerald-500 h-5 w-5"
-                />
+                <input type="radio" name="payment" value="balance" checked={selectedPayment === 'balance'}
+                  onChange={(e) => setSelectedPayment(e.target.value)} className="mt-1" />
                 <div className="ml-4 flex-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center">
-                        <Wallet className="w-5 h-5 text-gray-700 mr-2" />
-                        <span className="font-bold text-gray-900">Saldo Jasa.in</span>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">Sisa saldo: {formatCurrency(userBalance)}</p>
-                    </div>
-                    {!hasEnoughBalance && selectedPayment === 'balance' && (
-                      <div className="text-red-500 text-xs flex items-center">
-                        <AlertCircle className="w-4 h-4 mr-1" />
-                        Saldo tidak mencukupi
-                      </div>
-                    )}
+                  <div className="flex items-center">
+                    <Wallet className="w-5 h-5 text-gray-700 mr-2" />
+                    <span className="font-bold">Saldo Jasa.in</span>
                   </div>
+                  <p className="text-sm text-gray-500 mt-1">Sisa saldo: {formatCurrency(balance)}</p>
+                  {!hasEnoughBalance && selectedPayment === 'balance' && (
+                    <div className="text-red-500 text-xs flex items-center mt-1">
+                      <AlertCircle className="w-4 h-4 mr-1" /> Saldo tidak mencukupi
+                    </div>
+                  )}
                 </div>
               </label>
 
-              {/* Bank Transfer */}
               <label className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                selectedPayment === 'bank_transfer' 
-                  ? 'border-emerald-500 bg-emerald-50' 
-                  : 'border-gray-200 hover:border-gray-300'
+                selectedPayment === 'bank_transfer' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200'
               }`}>
-                <input
-                  type="radio"
-                  name="payment"
-                  value="bank_transfer"
-                  checked={selectedPayment === 'bank_transfer'}
-                  onChange={(e) => setSelectedPayment(e.target.value)}
-                  className="mt-1 text-emerald-600 focus:ring-emerald-500 h-5 w-5"
-                />
+                <input type="radio" name="payment" value="bank_transfer" checked={selectedPayment === 'bank_transfer'}
+                  onChange={(e) => setSelectedPayment(e.target.value)} className="mt-1" />
                 <div className="ml-4 flex-1">
                   <div className="flex items-center">
                     <Building2 className="w-5 h-5 text-gray-700 mr-2" />
-                    <span className="font-bold text-gray-900">Transfer Bank</span>
+                    <span className="font-bold">Transfer Bank</span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">BCA, Mandiri, BRI, BNI, Permata</p>
                 </div>
               </label>
 
-              {/* QRIS */}
-              <label className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                selectedPayment === 'qris' 
-                  ? 'border-emerald-500 bg-emerald-50' 
-                  : 'border-gray-200 hover:border-gray-300'
+              <label className={`flex items-start p-4 rounded-xl border-2 cursor-pointer ${
+                selectedPayment === 'qris' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200'
               }`}>
-                <input
-                  type="radio"
-                  name="payment"
-                  value="qris"
-                  checked={selectedPayment === 'qris'}
-                  onChange={(e) => setSelectedPayment(e.target.value)}
-                  className="mt-1 text-emerald-600 focus:ring-emerald-500 h-5 w-5"
-                />
+                <input type="radio" name="payment" value="qris" checked={selectedPayment === 'qris'}
+                  onChange={(e) => setSelectedPayment(e.target.value)} className="mt-1" />
                 <div className="ml-4 flex-1">
                   <div className="flex items-center">
                     <QrCode className="w-5 h-5 text-gray-700 mr-2" />
-                    <span className="font-bold text-gray-900">QRIS</span>
+                    <span className="font-bold">QRIS</span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">Scan menggunakan aplikasi mobile banking</p>
                 </div>
               </label>
             </div>
-
-            {/* Payment Note */}
-            {selectedPayment !== 'balance' && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-start">
-                <AlertCircle className="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-700">
-                  Anda akan diarahkan ke halaman pembayaran setelah mengkonfirmasi pesanan. 
-                  Pesanan akan diproses setelah pembayaran kami terima.
-                </p>
-              </div>
-            )}
           </Card>
 
           {/* Terms Agreement */}
           <div className="flex items-start space-x-3">
-            <input
-              type="checkbox"
-              id="terms"
-              checked={agreedToTerms}
-              onChange={(e) => setAgreedToTerms(e.target.checked)}
-              className="mt-1 text-emerald-600 focus:ring-emerald-500 h-4 w-4 rounded"
-            />
+            <input type="checkbox" id="terms" checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)} className="mt-1" />
             <label htmlFor="terms" className="text-sm text-gray-600">
-              Saya menyetujui <a href="/terms" className="text-emerald-600 hover:underline">Syarat dan Ketentuan</a> serta 
-              <a href="/privacy" className="text-emerald-600 hover:underline ml-1">Kebijakan Privasi</a> Jasa.in
+              Saya menyetujui <a href="/terms" className="text-emerald-600 hover:underline">Syarat dan Ketentuan</a> Jasa.in
             </label>
           </div>
         </div>
 
         {/* Right Column - Order Summary */}
         <div className="lg:w-1/3">
-          <Card className="sticky top-28 p-6 border-2 border-gray-200">
-            <h3 className="font-black text-gray-900 text-lg mb-4">Ringkasan Pesanan</h3>
+          <Card className="sticky top-28 p-6">
+            <h3 className="font-black text-lg mb-4">Ringkasan Pesanan</h3>
             
-            {/* Service Info */}
-            <div className="flex mb-4 pb-4 border-b border-gray-200">
-              <img 
-                src={service.thumbnail_url} 
-                className="w-20 h-16 object-cover rounded-md mr-3 border border-gray-200" 
-                alt={service.title}
-              />
-              <div className="flex-1">
-                <p className="text-sm font-bold text-gray-900 line-clamp-2">{service.title}</p>
-                <div className="mt-1">
-                  <Badge variant="purple" size="sm">{pkg.package_name}</Badge>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  oleh: <span className="font-medium">{service.freelancer_name}</span>
-                </p>
+            <div className="flex mb-4 pb-4 border-b">
+              <img src={serviceData.THUMBNAIL_URL || 'https://placehold.co/80x60'} className="w-20 h-16 object-cover rounded-md mr-3" alt="" />
+              <div>
+                <p className="text-sm font-bold line-clamp-2">{serviceData.TITLE}</p>
+                <Badge variant="purple" size="sm" className="mt-1">{packageData.PACKAGE_NAME}</Badge>
               </div>
             </div>
 
-            {/* Package Details */}
-            <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
+            <div className="space-y-2 mb-4 pb-4 border-b">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Paket {pkg.package_name}</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(pkg.price)}</span>
+                <span>Paket {packageData.PACKAGE_NAME}</span>
+                <span className="font-bold">{formatCurrency(packageData.PRICE)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Biaya Layanan</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(serviceFee)}</span>
+                <span>Biaya Layanan (5%)</span>
+                <span>{formatCurrency(serviceFee)}</span>
               </div>
-              {pkg.delivery_time && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 flex items-center">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Estimasi Pengerjaan
-                  </span>
-                  <span className="font-semibold text-gray-900">{pkg.delivery_time} hari</span>
-                </div>
-              )}
+              <div className="flex justify-between text-sm">
+                <span className="flex items-center"><Clock className="w-3 h-3 mr-1" /> Estimasi</span>
+                <span>{packageData.DELIVERY_DAYS} hari</span>
+              </div>
             </div>
 
-            {/* Total */}
             <div className="flex justify-between items-center mb-6">
-              <span className="font-black text-gray-900 text-base">Total Pembayaran</span>
-              <div className="text-right">
-                <span className="text-2xl font-black text-emerald-600">{formatCurrency(total)}</span>
-                <p className="text-xs text-gray-500">termasuk pajak & layanan</p>
-              </div>
+              <span className="font-black">Total Pembayaran</span>
+              <span className="text-2xl font-black text-emerald-600">{formatCurrency(total)}</span>
             </div>
 
-            {/* Security Info */}
             <div className="bg-gray-50 rounded-lg p-3 mb-6">
               <div className="flex items-start">
-                <Shield className="w-4 h-4 text-emerald-600 mr-2 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-gray-600 leading-relaxed">
-                  <span className="font-semibold">Pembayaran 100% Aman</span><br />
-                  Dana akan ditahan oleh Jasa.in dan baru dicairkan ke freelancer setelah Anda menyetujui hasil pekerjaan.
-                </p>
+                <Shield className="w-4 h-4 text-emerald-600 mr-2 mt-0.5" />
+                <p className="text-xs text-gray-600">Dana akan ditahan oleh Jasa.in hingga Anda menyetujui hasil pekerjaan.</p>
               </div>
             </div>
 
-            {/* Action Button */}
-            <Button 
-              size="lg" 
-              fullWidth 
-              onClick={handleSubmitOrder}
-              disabled={isProcessing || !agreedToTerms || !requirements.trim() || (selectedPayment === 'balance' && !hasEnoughBalance)}
-              className="relative"
-            >
-              {isProcessing ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Memproses...
-                </div>
-              ) : (
-                `Pesan Sekarang - ${formatCurrency(total)}`
-              )}
+            <Button fullWidth onClick={handleSubmitOrder} disabled={isProcessing || !agreedToTerms || !requirements.trim() || (selectedPayment === 'balance' && !hasEnoughBalance)}>
+              {isProcessing ? 'Memproses...' : `Pesan Sekarang - ${formatCurrency(total)}`}
             </Button>
-
-            {/* Payment Reminder */}
-            {selectedPayment !== 'balance' && (
-              <p className="text-xs text-center text-gray-400 mt-4">
-                *Setelah pesan, Anda akan mendapatkan instruksi pembayaran
-              </p>
-            )}
           </Card>
         </div>
       </div>

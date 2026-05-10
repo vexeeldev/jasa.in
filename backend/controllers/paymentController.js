@@ -310,3 +310,85 @@ exports.getWithdrawalHistory = async (req, res) => {
     if (connection) await connection.close();
   }
 };
+// ================= CHECK PAYMENT STATUS (untuk polling) =================
+exports.checkPaymentStatus = async (req, res) => {
+  let connection;
+  try {
+    const { orderId } = req.params;
+    
+    connection = await getConnection();
+    
+    const result = await connection.execute(
+      `SELECT status FROM ORDERS WHERE order_id = :orderId`,
+      { orderId }
+    );
+    
+    res.json({ 
+      success: true, 
+      status: result.rows[0]?.STATUS || 'unknown'
+    });
+    
+  } catch (err) {
+    console.error('CHECK PAYMENT STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+
+// ================= CONFIRM PAYMENT (via token dari QR) =================
+exports.confirmPayment = async (req, res) => {
+  const { token } = req.params;
+  console.log('🔍 Mencari token:', token);
+  
+  let connection;
+  try {
+    connection = await getConnection();
+    
+    const result = await connection.execute(
+      `SELECT order_id, status FROM ORDERS WHERE payment_token = :token AND status = 'waiting_payment'`,
+      { token },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    console.log('📊 Hasil jumlah:', result.rows.length);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Token tidak ditemukan atau sudah kadaluarsa',
+        token: token  // ← tambahkan token yang dicari
+      });
+    }
+    
+    const order = result.rows[0];
+    console.log('📊 Order ID:', order.ORDER_ID);
+    
+    // Update status order
+    await connection.execute(
+      `UPDATE ORDERS SET status = 'pending' WHERE order_id = :orderId`,
+      { orderId: order.ORDER_ID }
+    );
+    
+    await connection.commit();
+    
+    // ✅ Return token juga di response sukses
+    res.json({ 
+      success: true, 
+      message: 'Pembayaran berhasil!', 
+      order_id: order.ORDER_ID,
+      token: token  // ← tambahkan token
+    });
+    
+  } catch (err) {
+    if (connection) await connection.rollback();
+    console.error('CONFIRM PAYMENT ERROR:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + err.message,
+      token: token 
+    });
+  } finally {
+    if (connection) await connection.close();
+  }
+};

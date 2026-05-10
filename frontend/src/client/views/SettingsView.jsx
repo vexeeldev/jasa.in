@@ -1,30 +1,33 @@
-import React, { useState } from 'react';
-import { User, Lock, CreditCard, X, Bell, MapPin, Globe, Shield, Smartphone, Mail, Key, Eye, EyeOff, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User, Lock, CreditCard, X, Bell, MapPin, Globe, Shield, Smartphone, Mail, Key, Eye, EyeOff, Save, Loader2 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import { DB_USERS } from '../data/mockDatabase';
 import { classNames } from '../data/helpers';
 
+const API_BASE_URL = 'http://localhost:5000/api';
+
 const ClientSettingsView = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  // Mock current user - client
-  const currentUser = DB_USERS.find(u => u.role === 'client') || DB_USERS[0];
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   
   // Form states
   const [formData, setFormData] = useState({
-    fullName: currentUser?.full_name || 'Sarah Client',
-    username: currentUser?.username || 'sarah_client',
-    email: currentUser?.email || 'sarah@example.com',
-    phone: currentUser?.phone || '08123456789',
-    address: 'Jl. Sudirman No. 123, Jakarta Selatan',
-    city: 'Jakarta Selatan',
-    province: 'DKI Jakarta',
-    postalCode: '12190',
+    fullName: '',
+    username: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    province: '',
+    postalCode: '',
     notificationEmail: true,
     notificationWhatsapp: true,
     notificationPromo: false
@@ -35,6 +38,42 @@ const ClientSettingsView = () => {
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Fetch user profile
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        const user = data.data;
+        setCurrentUser(user);
+        setFormData({
+          fullName: user.full_name || '',
+          username: user.username || '',
+          email: user.email || '',
+          phone: user.phone || '',
+          address: user.address || '',
+          city: user.city || '',
+          province: user.province || '',
+          postalCode: user.postal_code || '',
+          notificationEmail: user.notification_email !== false,
+          notificationWhatsapp: user.notification_whatsapp !== false,
+          notificationPromo: user.notification_promo || false
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     setFormData({
@@ -50,12 +89,41 @@ const ClientSettingsView = () => {
     });
   };
 
-  const handleSaveProfile = () => {
-    // TODO: API call to update profile
-    alert('Profil berhasil diperbarui!');
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          full_name: formData.fullName,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          province: formData.province,
+          postal_code: formData.postalCode
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Profil berhasil diperbarui!');
+        fetchUserProfile();
+      } else {
+        alert(data.message || 'Gagal update profil');
+      }
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       alert('Password baru tidak cocok!');
       return;
@@ -64,9 +132,66 @@ const ClientSettingsView = () => {
       alert('Password minimal 6 karakter!');
       return;
     }
-    // TODO: API call to change password
-    alert('Password berhasil diubah!');
-    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          current_password: passwordData.currentPassword,
+          new_password: passwordData.newPassword
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Password berhasil diubah!');
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        alert(data.message || 'Gagal mengubah password');
+      }
+    } catch (error) {
+      console.error('Failed to change password:', error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUploadAvatar = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('avatar', file);
+    
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Avatar berhasil diupdate!');
+        fetchUserProfile();
+      } else {
+        alert(data.message || 'Gagal upload avatar');
+      }
+    } catch (error) {
+      console.error('Failed to upload avatar:', error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs = [
@@ -76,10 +201,17 @@ const ClientSettingsView = () => {
     { id: 'billing', label: 'Pembayaran', icon: CreditCard }
   ];
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-gray-50 min-h-screen">
       
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-black text-gray-900">Pengaturan Akun</h1>
         <p className="text-gray-500 font-medium mt-1">Kelola profil, keamanan, dan preferensi akun Anda</p>
@@ -88,14 +220,14 @@ const ClientSettingsView = () => {
       <Card noPadding className="overflow-hidden shadow-xl border-0">
         <div className="flex flex-col md:flex-row">
           
-          {/* Settings Sidebar - Client Version */}
+          {/* Sidebar */}
           <div className="w-full md:w-72 bg-gradient-to-b from-gray-50 to-white border-r border-gray-200">
             <div className="p-5 border-b border-gray-200">
               <div className="flex items-center gap-3">
                 <Avatar src={currentUser?.avatar_url} size="lg" />
                 <div>
-                  <h3 className="font-black text-gray-900">{formData.fullName}</h3>
-                  <p className="text-xs text-gray-500">@{formData.username}</p>
+                  <h3 className="font-black text-gray-900">{formData.fullName || currentUser?.full_name}</h3>
+                  <p className="text-xs text-gray-500">@{formData.username || currentUser?.username}</p>
                   <Badge variant="info" className="mt-1 text-[10px]">Client</Badge>
                 </div>
               </div>
@@ -126,7 +258,7 @@ const ClientSettingsView = () => {
             </nav>
           </div>
 
-          {/* Settings Content */}
+          {/* Content */}
           <div className="flex-1 p-6 sm:p-8 bg-white">
             
             {/* Profile Tab */}
@@ -142,7 +274,17 @@ const ClientSettingsView = () => {
                   <Avatar src={currentUser?.avatar_url} size="xl" />
                   <div className="text-center sm:text-left sm:ml-6 mt-4 sm:mt-0">
                     <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" className="font-bold">Unggah Foto Baru</Button>
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleUploadAvatar}
+                          className="hidden"
+                        />
+                        <Button variant="secondary" size="sm" className="font-bold" disabled={saving}>
+                          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Unggah Foto Baru'}
+                        </Button>
+                      </label>
                       <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">Hapus</Button>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">Format JPG atau PNG. Maks 2MB.</p>
@@ -167,7 +309,6 @@ const ClientSettingsView = () => {
                     label="Username" 
                     id="username" 
                     value={formData.username}
-                    onChange={handleInputChange}
                     disabled 
                     helperText="Username tidak dapat diubah"
                   />
@@ -176,7 +317,6 @@ const ClientSettingsView = () => {
                     id="email" 
                     type="email" 
                     value={formData.email}
-                    onChange={handleInputChange}
                     disabled
                   />
                   <Input 
@@ -188,8 +328,8 @@ const ClientSettingsView = () => {
                   />
                 </div>
 
-                {/* Address Info - khusus client */}
-                <h3 className="font-black text-gray-900 text-lg mb-4 flex items-center mt-6">
+                {/* Address Info */}
+                <h3 className="font-black text-gray-900 text-lg mb-4 flex items-center">
                   <MapPin className="w-5 h-5 mr-2 text-emerald-500" />
                   Alamat
                 </h3>
@@ -223,8 +363,9 @@ const ClientSettingsView = () => {
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-3">
-                  <Button variant="ghost">Batal</Button>
-                  <Button onClick={handleSaveProfile} icon={Save}>
+                  <Button variant="ghost" onClick={() => fetchUserProfile()}>Batal</Button>
+                  <Button onClick={handleSaveProfile} icon={Save} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     Simpan Perubahan
                   </Button>
                 </div>
@@ -239,7 +380,6 @@ const ClientSettingsView = () => {
                   <p className="text-sm text-gray-500">Jaga keamanan akun Anda</p>
                 </div>
 
-                {/* Change Password */}
                 <div className="mb-8 p-5 bg-gray-50 rounded-xl">
                   <h3 className="font-black text-gray-900 mb-4 flex items-center">
                     <Key className="w-5 h-5 mr-2 text-emerald-500" />
@@ -256,7 +396,7 @@ const ClientSettingsView = () => {
                           type={showPassword ? "text" : "password"}
                           value={passwordData.currentPassword}
                           onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                           placeholder="Masukkan password saat ini"
                         />
                         <button
@@ -277,7 +417,7 @@ const ClientSettingsView = () => {
                         type="password"
                         value={passwordData.newPassword}
                         onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                         placeholder="Minimal 6 karakter"
                       />
                     </div>
@@ -290,18 +430,18 @@ const ClientSettingsView = () => {
                         type={showConfirmPassword ? "text" : "password"}
                         value={passwordData.confirmPassword}
                         onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                         placeholder="Ketik ulang password baru"
                       />
                     </div>
 
-                    <Button onClick={handleChangePassword} className="mt-2">
+                    <Button onClick={handleChangePassword} disabled={saving}>
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                       Ubah Password
                     </Button>
                   </div>
                 </div>
 
-                {/* Two Factor Authentication - Coming Soon */}
                 <div className="p-5 bg-gray-50 rounded-xl">
                   <div className="flex items-center justify-between">
                     <div>
@@ -317,7 +457,6 @@ const ClientSettingsView = () => {
                   </div>
                 </div>
 
-                {/* Session Management */}
                 <div className="mt-6 p-5 bg-red-50 rounded-xl border border-red-100">
                   <h3 className="font-black text-gray-900 mb-2">Keluar dari Semua Perangkat</h3>
                   <p className="text-sm text-gray-600 mb-3">
@@ -355,7 +494,7 @@ const ClientSettingsView = () => {
                         onChange={handleCheckboxChange}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                     </label>
                   </div>
 
@@ -375,7 +514,7 @@ const ClientSettingsView = () => {
                         onChange={handleCheckboxChange}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                     </label>
                   </div>
 
@@ -395,7 +534,7 @@ const ClientSettingsView = () => {
                         onChange={handleCheckboxChange}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                     </label>
                   </div>
                 </div>
@@ -416,7 +555,6 @@ const ClientSettingsView = () => {
                   <p className="text-sm text-gray-500">Kelola metode pembayaran untuk transaksi Anda</p>
                 </div>
 
-                {/* Saved Payment Methods */}
                 <div className="space-y-3 mb-8">
                   <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl bg-gray-50">
                     <div className="flex items-center gap-3">
@@ -445,13 +583,12 @@ const ClientSettingsView = () => {
                   + Tambah Metode Pembayaran Baru
                 </Button>
 
-                {/* Transaction History Link */}
                 <div className="mt-8 pt-6 border-t border-gray-200">
                   <h3 className="font-black text-gray-900 mb-3">Riwayat Transaksi</h3>
                   <p className="text-sm text-gray-500 mb-4">
                     Lihat semua riwayat pembayaran dan tagihan Anda
                   </p>
-                  <Button variant="secondary" onClick={() => window.location.href = '/client/wallet'}>
+                  <Button variant="secondary" onClick={() => navigate('/client/wallet')}>
                     Lihat Riwayat Transaksi
                   </Button>
                 </div>
@@ -465,7 +602,6 @@ const ClientSettingsView = () => {
   );
 };
 
-// Badge component for client settings
 const Badge = ({ variant, children, className }) => {
   const variants = {
     info: 'bg-blue-100 text-blue-700',

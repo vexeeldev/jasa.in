@@ -2,18 +2,30 @@ const { getConnection } = require('../config/db');
 const oracledb = require('oracledb');
 
 // ================= GET ALL SERVICES =================
+// ================= GET ALL SERVICES (with filters) =================
 exports.getServices = async (req, res) => {
   let connection;
   try {
     const { 
-      category, search, min_price, max_price, sort, 
-      page = 1, limit = 12, freelancer_id, featured 
+      page = 1, 
+      limit = 12,
+      category,
+      search,
+      budget,
+      delivery,
+      level,
+      sort
     } = req.query;
+    
+    console.log('📊 FILTERS:', { category, search, budget, delivery, level, sort });
     
     connection = await getConnection();
     
+    // 🔥 AMBIL SEMUA DATA DULU dengan JOIN
     let sql = `
-      SELECT s.*, c.name as category_name, c.slug as category_slug,
+      SELECT s.service_id, s.freelancer_id, s.category_id, s.title, s.description,
+             s.thumbnail_url, s.status, s.total_orders, s.created_at,
+             c.name as category_name, c.slug as category_slug,
              u.user_id as seller_id, u.full_name as seller_name, u.avatar_url as seller_avatar,
              fp.rating_avg as seller_rating, fp.total_orders as seller_orders, fp.freelancer_level,
              (SELECT MIN(price) FROM SERVICE_PACKAGES WHERE service_id = s.service_id) as min_price
@@ -24,92 +36,127 @@ exports.getServices = async (req, res) => {
       WHERE s.status = 'active'
     `;
     
-    const params = {};
+    const params = [];
     
+    // Category filter
     if (category) {
       sql += ` AND c.slug = :category`;
-      params.category = category;
+      params.push(category);
     }
     
-    if (freelancer_id) {
-      sql += ` AND s.freelancer_id = :freelancer_id`;
-      params.freelancer_id = freelancer_id;
-    }
-    
+    // Search filter
     if (search) {
-      sql += ` AND (LOWER(s.title) LIKE LOWER(:search) OR LOWER(s.description) LIKE LOWER(:search))`;
-      params.search = `%${search}%`;
+      sql += ` AND LOWER(s.title) LIKE LOWER(:search)`;
+      params.push(`%${search}%`);
     }
     
-    if (min_price) {
-      sql += ` AND (SELECT MIN(price) FROM SERVICE_PACKAGES WHERE service_id = s.service_id) >= :min_price`;
-      params.min_price = min_price;
+    // Level filter
+    if (level === 'top') {
+      sql += ` AND fp.freelancer_level = 'top'`;
+    } else if (level === 'high') {
+      sql += ` AND fp.freelancer_level IN ('top', 'pro', 'high')`;
+    } else if (level === 'new') {
+      sql += ` AND fp.freelancer_level = 'new'`;
     }
     
-    if (max_price) {
-      sql += ` AND (SELECT MIN(price) FROM SERVICE_PACKAGES WHERE service_id = s.service_id) <= :max_price`;
-      params.max_price = max_price;
-    }
-    
-    // Sorting
-    switch(sort) {
-      case 'popular':
-        sql += ` ORDER BY s.total_orders DESC`;
-        break;
-      case 'rating':
-        sql += ` ORDER BY fp.rating_avg DESC NULLS LAST`;
-        break;
-      case 'price-low':
-        sql += ` ORDER BY min_price ASC`;
-        break;
-      case 'price-high':
-        sql += ` ORDER BY min_price DESC`;
-        break;
-      case 'newest':
-        sql += ` ORDER BY s.created_at DESC`;
-        break;
-      default:
-        sql += ` ORDER BY s.created_at DESC`;
-    }
-    
-    const offset = (page - 1) * limit;
-    sql += ` OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`;
-    params.offset = offset;
-    params.limit = limit;
-    
+    // Execute query
     const result = await connection.execute(sql, params, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    let allServices = JSON.parse(JSON.stringify(result.rows));
+    
+    console.log(`📊 Total services before filters: ${allServices.length}`);
+    
+    // 🔥 FILTER BUDGET di JAVASCRIPT (lebih mudah dan pasti berfungsi)
+    if (budget === 'under-500k') {
+      allServices = allServices.filter(s => s.MIN_PRICE < 500000);
+      console.log(`💰 After under-500k filter: ${allServices.length}`);
+    } else if (budget === '500k-2m') {
+      allServices = allServices.filter(s => s.MIN_PRICE >= 500000 && s.MIN_PRICE <= 2000000);
+      console.log(`💰 After 500k-2m filter: ${allServices.length}`);
+    } else if (budget === 'above-2m') {
+      allServices = allServices.filter(s => s.MIN_PRICE > 2000000);
+      console.log(`💰 After above-2m filter: ${allServices.length}`);
+    }
+    
+    // 🔥 FILTER DELIVERY di JAVASCRIPT
+    if (delivery === '24h') {
+      // Kita perlu ambil min delivery days juga
+      for (const service of allServices) {
+        const pkg = await connection.execute(
+          `SELECT MIN(delivery_days) as min_delivery FROM SERVICE_PACKAGES WHERE service_id = :sid`,
+          { sid: service.SERVICE_ID }
+        );
+        service.MIN_DELIVERY = pkg.rows[0]?.MIN_DELIVERY || 999;
+      }
+      allServices = allServices.filter(s => s.MIN_DELIVERY <= 1);
+      console.log(`📦 After 24h delivery filter: ${allServices.length}`);
+    } else if (delivery === '3d') {
+      for (const service of allServices) {
+        const pkg = await connection.execute(
+          `SELECT MIN(delivery_days) as min_delivery FROM SERVICE_PACKAGES WHERE service_id = :sid`,
+          { sid: service.SERVICE_ID }
+        );
+        service.MIN_DELIVERY = pkg.rows[0]?.MIN_DELIVERY || 999;
+      }
+      allServices = allServices.filter(s => s.MIN_DELIVERY <= 3);
+      console.log(`📦 After 3d delivery filter: ${allServices.length}`);
+    } else if (delivery === '7d') {
+      for (const service of allServices) {
+        const pkg = await connection.execute(
+          `SELECT MIN(delivery_days) as min_delivery FROM SERVICE_PACKAGES WHERE service_id = :sid`,
+          { sid: service.SERVICE_ID }
+        );
+        service.MIN_DELIVERY = pkg.rows[0]?.MIN_DELIVERY || 999;
+      }
+      allServices = allServices.filter(s => s.MIN_DELIVERY <= 7);
+      console.log(`📦 After 7d delivery filter: ${allServices.length}`);
+    }
+    
+    // 🔥 SORTING di JAVASCRIPT
+    if (sort === 'popular') {
+      allServices.sort((a, b) => (b.TOTAL_ORDERS || 0) - (a.TOTAL_ORDERS || 0));
+    } else if (sort === 'rating') {
+      allServices.sort((a, b) => (b.SELLER_RATING || 0) - (a.SELLER_RATING || 0));
+    } else if (sort === 'price-low') {
+      allServices.sort((a, b) => (a.MIN_PRICE || 0) - (b.MIN_PRICE || 0));
+    } else if (sort === 'price-high') {
+      allServices.sort((a, b) => (b.MIN_PRICE || 0) - (a.MIN_PRICE || 0));
+    } else if (sort === 'newest') {
+      allServices.sort((a, b) => new Date(b.CREATED_AT) - new Date(a.CREATED_AT));
+    }
+    
+    // 🔥 PAGINATION
+    const total = allServices.length;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const paginatedServices = allServices.slice(start, end);
     
     // Get packages for each service
-    for (const service of result.rows) {
+    for (const service of paginatedServices) {
       const pkgResult = await connection.execute(
         `SELECT package_id, package_name, description, price, delivery_days, revisions 
          FROM SERVICE_PACKAGES 
          WHERE service_id = :service_id
          ORDER BY price ASC`,
-        { service_id: service.SERVICE_ID }
+        { service_id: service.SERVICE_ID },
+        { outFormat: oracledb.OUT_FORMAT_OBJECT }
       );
-      service.PACKAGES = pkgResult.rows;
+      service.PACKAGES = JSON.parse(JSON.stringify(pkgResult.rows));
     }
-    
-    // Get total count
-    const countSql = sql.replace(/SELECT.*FROM/, 'SELECT COUNT(*) as total FROM').replace(/OFFSET.*$/, '');
-    const countResult = await connection.execute(countSql, params);
-    const total = countResult.rows[0]?.TOTAL || 0;
     
     res.json({
       success: true,
-      data: result.rows,
+      data: paginatedServices,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total,
+        total: total,
         totalPages: Math.ceil(total / limit)
       }
     });
     
   } catch (err) {
     console.error('GET SERVICES ERROR:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   } finally {
     if (connection) await connection.close();
   }
@@ -123,8 +170,11 @@ exports.getServiceById = async (req, res) => {
     
     connection = await getConnection();
     
+    // 1. Ambil data service
     const result = await connection.execute(
-      `SELECT s.*, c.name as category_name, c.slug as category_slug,
+      `SELECT s.service_id, s.freelancer_id, s.category_id, s.title, s.description,
+              s.thumbnail_url, s.image_1, s.image_2, s.image_3, s.status, s.total_orders, s.created_at,
+              c.name as category_name, c.slug as category_slug,
               u.user_id as seller_id, u.username, u.full_name as seller_name, u.phone as seller_phone,
               u.avatar_url as seller_avatar, u.created_at as seller_joined,
               fp.bio as seller_bio, fp.rating_avg as seller_rating, 
@@ -144,36 +194,40 @@ exports.getServiceById = async (req, res) => {
     
     const service = result.rows[0];
     
-    // Get packages
+    // 2. Gallery dari image_1, image_2, image_3
+    const gallery = [];
+    if (service.IMAGE_1) gallery.push(service.IMAGE_1);
+    if (service.IMAGE_2) gallery.push(service.IMAGE_2);
+    if (service.IMAGE_3) gallery.push(service.IMAGE_3);
+    service.GALLERY = gallery;
+    
+    // 3. Get packages
     const pkgResult = await connection.execute(
       `SELECT package_id, package_name, description, price, delivery_days, revisions 
        FROM SERVICE_PACKAGES 
        WHERE service_id = :service_id
        ORDER BY price ASC`,
-      { service_id: id }
+      { service_id: id },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
     service.PACKAGES = pkgResult.rows;
-  
-    // Get gallery    
-    const galleryResult = await connection.execute(
-      `SELECT image_url FROM SERVICE_GALLERY WHERE service_id = :service_id ORDER BY sort_order`,
-      { service_id: id }
-    );
-    service.GALLERY = galleryResult.rows.map(g => g.IMAGE_URL);
     
-    // Get reviews
+    // 4. Get reviews (JOIN ke SERVICE_PACKAGES dulu)
     const reviewResult = await connection.execute(
-      `SELECT r.*, u.full_name, u.avatar_url
+      `SELECT r.review_id, r.order_id, r.rating, r.review_comment, r.created_at,
+              u.full_name, u.avatar_url
        FROM REVIEWS r
+       JOIN ORDERS o ON r.order_id = o.order_id
+       JOIN SERVICE_PACKAGES sp ON o.package_id = sp.package_id
        JOIN USERS u ON r.reviewer_id = u.user_id
-       WHERE r.service_id = :service_id AND r.review_comment IS NOT NULL
-       ORDER BY r.created_at DESC
-       OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY`,
-      { service_id: id }
+       WHERE sp.service_id = :service_id AND r.review_comment IS NOT NULL
+       ORDER BY r.created_at DESC`,
+      { service_id: id },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
-    service.REVIEWS = reviewResult.rows;
+    service.REVIEWS = reviewResult.rows.slice(0, 10);
     
-    // Get review stats
+    // 5. Get review stats
     const reviewStats = await connection.execute(
       `SELECT 
          COUNT(*) as total_reviews,
@@ -183,17 +237,20 @@ exports.getServiceById = async (req, res) => {
          COUNT(CASE WHEN rating = 3 THEN 1 END) as rating_3,
          COUNT(CASE WHEN rating = 2 THEN 1 END) as rating_2,
          COUNT(CASE WHEN rating = 1 THEN 1 END) as rating_1
-       FROM REVIEWS
-       WHERE service_id = :service_id`,
-      { service_id: id }
+       FROM REVIEWS r
+       JOIN ORDERS o ON r.order_id = o.order_id
+       JOIN SERVICE_PACKAGES sp ON o.package_id = sp.package_id
+       WHERE sp.service_id = :service_id`,
+      { service_id: id },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
-    service.REVIEW_STATS = reviewStats.rows[0];
+    service.REVIEW_STATS = reviewStats.rows[0] || { total_reviews: 0, avg_rating: 0 };
     
     res.json({ success: true, data: service });
     
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('GET SERVICE BY ID ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   } finally {
     if (connection) await connection.close();
   }
@@ -425,6 +482,39 @@ exports.updatePackages = async (req, res) => {
   } catch (err) {
     if (connection) await connection.rollback();
     console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+// ================= GET PACKAGE BY ID =================
+exports.getPackageById = async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    
+    connection = await getConnection();
+    
+    const result = await connection.execute(
+      `SELECT sp.*, s.service_id, s.title as service_title, s.thumbnail_url,
+              u.full_name as freelancer_name
+       FROM SERVICE_PACKAGES sp
+       JOIN SERVICES s ON sp.service_id = s.service_id
+       JOIN FREELANCER_PROFILES fp ON s.freelancer_id = fp.freelancer_id
+       JOIN USERS u ON fp.user_id = u.user_id
+       WHERE sp.package_id = :id`,
+      { id },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Paket tidak ditemukan' });
+    }
+    
+    res.json({ success: true, data: result.rows[0] });
+    
+  } catch (err) {
+    console.error('GET PACKAGE BY ID ERROR:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   } finally {
     if (connection) await connection.close();

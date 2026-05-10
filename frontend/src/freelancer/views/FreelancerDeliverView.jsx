@@ -9,7 +9,7 @@ import { formatCurrency, formatDateTime } from '../data/helpers';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-const FreelancerOrderTrackView = () => {
+const FreelancerDeliverView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
@@ -19,7 +19,6 @@ const FreelancerOrderTrackView = () => {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [revisions, setRevisions] = useState([]);
-  const [deliveries, setDeliveries] = useState([]);
 
   useEffect(() => {
     fetchOrder();
@@ -35,7 +34,6 @@ const FreelancerOrderTrackView = () => {
       if (data.success) {
         setOrder(data.data);
         setRevisions(data.data.REVISIONS || []);
-        setDeliveries(data.data.DELIVERIES || []);
       }
     } catch (error) {
       console.error('Failed to fetch order:', error);
@@ -44,7 +42,7 @@ const FreelancerOrderTrackView = () => {
     }
   };
 
-  // Upload file ke server
+  // 🔥 Upload file ke server
   const uploadFileToServer = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -85,41 +83,50 @@ const FreelancerOrderTrackView = () => {
   };
 
   const handleSubmitDelivery = async () => {
-    if (!deliveryMessage.trim()) {
-      alert('Mohon isi pesan untuk client');
-      return;
-    }
+  const token = localStorage.getItem('token');
+  
+  // 🔥 Cek token
+  if (!token) {
+    alert('Token tidak ditemukan. Silakan login ulang!');
+    navigate('/login');
+    return;
+  }
+  
+  console.log('Token length:', token.length); // debug
+  
+  if (!deliveryMessage.trim()) {
+    alert('Mohon isi pesan untuk client');
+    return;
+  }
 
-    setSubmitting(true);
-    try {
-      const token = localStorage.getItem('token');
-      
-      const res = await fetch(`${API_BASE_URL}/orders/${id}/deliver`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          message: deliveryMessage,
-          attachments: attachments
-        })
-      });
-      
-      const data = await res.json();
-      if (data.success) {
-        alert('Hasil pekerjaan berhasil dikirim!');
-        navigate('/orders');
-      } else {
-        alert(data.message || 'Gagal mengirim hasil pekerjaan');
-      }
-    } catch (error) {
-      console.error('Delivery failed:', error);
-      alert('Terjadi kesalahan: ' + error.message);
-    } finally {
-      setSubmitting(false);
+  setSubmitting(true);
+  try {
+    const res = await fetch(`${API_BASE_URL}/orders/${id}/deliver`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        message: deliveryMessage,
+        attachments: attachments
+      })
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+      alert('Hasil pekerjaan berhasil dikirim!');
+      navigate('/orders');
+    } else {
+      alert(data.message || 'Gagal mengirim');
     }
-  };
+  } catch (error) {
+    console.error('Delivery failed:', error);
+    alert('Terjadi kesalahan: ' + error.message);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const getStatusBadge = (status) => {
     const statusMap = {
@@ -157,7 +164,6 @@ const FreelancerOrderTrackView = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
-      {/* Back Button */}
       <button 
         onClick={() => navigate('/orders')} 
         className="flex items-center text-gray-500 hover:text-emerald-600 mb-6 transition-colors"
@@ -165,7 +171,7 @@ const FreelancerOrderTrackView = () => {
         ← Kembali ke Daftar Pesanan
       </button>
 
-      {/* Order Info Card */}
+      {/* Order Info */}
       <Card className="p-6 mb-6">
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -223,9 +229,7 @@ const FreelancerOrderTrackView = () => {
         {!canDeliver ? (
           <div className="text-center py-8">
             <Clock className="w-16 h-16 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-500">
-              Status order: <strong>{statusBadge.label}</strong>
-            </p>
+            <p className="text-gray-500">Status order: <strong>{statusBadge.label}</strong></p>
             <p className="text-sm text-gray-400 mt-2">
               {order.STATUS === 'waiting_approval' 
                 ? 'Menunggu review dari client' 
@@ -236,7 +240,7 @@ const FreelancerOrderTrackView = () => {
           </div>
         ) : (
           <>
-            {/* Delivery Message */}
+            {/* Pesan */}
             <div className="mb-4">
               <label className="block font-bold text-gray-900 mb-2">
                 Pesan untuk Client <span className="text-red-500">*</span>
@@ -251,7 +255,7 @@ const FreelancerOrderTrackView = () => {
               />
             </div>
 
-            {/* File Attachments */}
+            {/* Upload File */}
             <div className="mb-6">
               <label className="block font-bold text-gray-900 mb-2">Lampiran File</label>
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-emerald-400 transition-colors">
@@ -279,9 +283,12 @@ const FreelancerOrderTrackView = () => {
                     <div key={idx} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
                       <div className="flex items-center gap-3">
                         <FileText className="w-5 h-5 text-emerald-600" />
-                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-emerald-600 hover:underline">
-                          {att.name}
-                        </a>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{att.name}</p>
+                          <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-600 hover:underline">
+                            Lihat file
+                          </a>
+                        </div>
                       </div>
                       <button onClick={() => removeAttachment(idx)} className="text-red-500 hover:text-red-700">
                         <X className="w-5 h-5" />
@@ -292,7 +299,7 @@ const FreelancerOrderTrackView = () => {
               )}
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <Button
               fullWidth
               size="lg"
@@ -325,4 +332,4 @@ const FreelancerOrderTrackView = () => {
   );
 };
 
-export default FreelancerOrderTrackView;
+export default FreelancerDeliverView;

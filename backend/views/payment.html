@@ -1,0 +1,59 @@
+<!-- backend/views/payment.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Konfirmasi Pembayaran</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial; text-align: center; padding: 50px; background: #f5f5f5; }
+        .card { background: white; max-width: 400px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        button { background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 20px; }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div id="content"></div>
+    </div>
+
+    <script>
+        const token = window.location.pathname.split('/').pop();
+        
+        async function confirmPayment() {
+            document.getElementById('content').innerHTML = '<div class="loading"></div><p>Memproses...</p>';
+            
+            try {
+                const res = await fetch(`/api/payments/payment-confirm/${token}`, { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('content').innerHTML = `
+                        <div class="success">✅</div>
+                        <h2>Pembayaran Berhasil!</h2>
+                        <p>Pesanan Anda telah dikonfirmasi</p>
+                        <p>Silakan tutup halaman ini</p>
+                    `;
+                } else {
+                    document.getElementById('content').innerHTML = `
+                        <div class="error">❌</div>
+                        <h2>Gagal</h2>
+                        <p>${data.message}</p>
+                    `;
+                }
+            } catch (err) {
+                document.getElementById('content').innerHTML = `
+                    <div class="error">❌</div>
+                    <h2>Error</h2>
+                    <p>Terjadi kesalahan</p>
+                `;
+            }
+        }
+        
+        confirmPayment();
+    </script>
+</body>
+</html>

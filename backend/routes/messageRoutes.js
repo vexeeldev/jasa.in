@@ -35,4 +35,9 @@ router.get('/partner/:orderId/:partnerId', messageController.getChatPartner);
 // Typing indicator
 router.post('/typing', messageController.sendTypingIndicator);
 
+// Direct chat routes
+router.get('/direct/list', messageController.getDirectChatList);
+router.get('/direct/room/:otherUserId', messageController.getOrCreateDirectChat);
+router.post('/direct/room/:roomId', messageController.sendDirectMessage);
+
 module.exports = router;

@@ -25,5 +25,7 @@ router.put('/:id/packages', isFreelancer, serviceController.updatePackages);
 
 // Delete service (freelancer only)
 router.delete('/:id', isFreelancer, serviceController.deleteService);
+// Get package by ID (public, tapi untuk checkout perlu auth)
+router.get('/packages/:id', authMiddleware, serviceController.getPackageById);
 
 module.exports = router;

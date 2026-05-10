@@ -14,6 +14,7 @@ import MessagesView from './freelancer/views/MessagesView';
 import UserProfileView from './freelancer/views/UserProfileView';
 import SettingsView from './freelancer/views/SettingsView';
 import WalletView from './freelancer/views/WalletView';
+import FreelancerDeliverView from './freelancer/views/FreelancerDeliverView';
 
 // ============================================
 // CLIENT VIEWS
@@ -28,6 +29,10 @@ import ClientMessagesView from './client/views/MessagesView';
 import ClientProfileView from './client/views/UserProfileView';
 import ClientSettingsView from './client/views/SettingsView';
 import ClientWalletView from './client/views/WalletView';
+import PaymentInstructionView from './client/views/PaymentInstructionView';
+import PaymentPage from './client/views/PaymentPage';
+import ClientDirectChatView from './client/views/ClientDirectChatView';
+
 
 // ============================================
 // AUTH & LANDING
@@ -157,6 +162,9 @@ const AppContent = () => {
     );
   }
 
+  if (location.pathname.startsWith('/client/pay/')) {
+    return <PaymentPage />;
+  }
   // Halaman Auth
   if (isAuthPage) {
     return (
@@ -190,10 +198,13 @@ const AppContent = () => {
           <Route path="/client/orders" element={<ClientOrdersView />} />
           <Route path="/client/order-track/:id" element={<ClientOrderTrackView />} />
           <Route path="/client/messages" element={<ClientMessagesView />} />
+          <Route path="/client/profile" element={<ClientProfileView />} />
           <Route path="/client/profile/:id" element={<ClientProfileView />} />
           <Route path="/client/settings" element={<ClientSettingsView />} />
           <Route path="/client/wallet" element={<ClientWalletView />} />
-          
+          <Route path="/client/payment-instruction" element={<PaymentInstructionView />} />
+          <Route path="/client/direct-chat/:sellerId" element={<ClientDirectChatView />} />
+
           <Route path="*" element={<Navigate to="/client" replace />} />
         </Routes>
       </ClientLayout>
@@ -216,6 +227,7 @@ const AppContent = () => {
         <Route path="/messages" element={<MessagesView />} />
         <Route path="/profile/:id" element={<UserProfileView />} />
         <Route path="/settings" element={<SettingsView />} />
+        <Route path="/freelancer/deliver/:id" element={<FreelancerDeliverView />} />
         
         <Route path="*" element={<HomeView />} />
       </Routes>

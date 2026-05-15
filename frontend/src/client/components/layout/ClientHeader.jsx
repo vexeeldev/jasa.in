@@ -3,6 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Wallet, LayoutGrid, ChevronRight, Settings, LogOut, User, Heart, ShoppingCart, Clock, Star, Bell } from 'lucide-react';
 import { classNames } from '../../data/helpers';
 import Avatar from '../ui/Avatar';
+import io from 'socket.io-client';
+
+const API_BASE_URL = 'http://localhost:5000/api';
+const STATIC_URL = 'http://localhost:5000';
 
 const BellIcon = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -21,7 +25,10 @@ const DropdownItem = ({ icon: Icon, label, onClick, className = '' }) => (
   </button>
 );
 
-const ClientHeader = ({ currentUser }) => {
+const ClientHeader = ({ currentUser: propCurrentUser }) => {
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+  const [socket, setSocket] = useState(null);
+  const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -31,24 +38,62 @@ const ClientHeader = ({ currentUser }) => {
 
   const isHome = location.pathname === '/' || location.pathname === '/client' || location.pathname === '/client/dashboard';
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
-    };
+  const getFullImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return `${STATIC_URL}${url}`;
+    return `${STATIC_URL}/${url}`;
+  };
 
+  // 🔥 FETCH USER DATA LANSUNG DARI API
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`${API_BASE_URL}/users/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUserData(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+    }
+  };
+
+  // 🔥 AMBIL DATA AWAL
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  // 🔥 UPDATE SAAT PROP BERUBAH (login)
+  useEffect(() => {
+    if (propCurrentUser) {
+      setUserData(propCurrentUser);
+    } else {
+      fetchUserData();
+    }
+  }, [propCurrentUser]);
+
+  // 🔥 LISTENER UNTUK UPDATE DARI SETTINGS
+  useEffect(() => {
+    const handleUserUpdate = () => {
+      fetchUserData();
+    };
+    window.addEventListener('userUpdated', handleUserUpdate);
+    return () => window.removeEventListener('userUpdated', handleUserUpdate);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const headerClass = classNames(
-    "fixed w-full top-0 z-50 transition-all duration-300",
-    (isHome && !isScrolled) 
-      ? "bg-transparent border-transparent shadow-none" 
-      : "bg-white border-b border-gray-200 shadow-md"
+    "fixed w-full top-0 z-50 transition-all duration-300 border-b",
+    (isHome && !isScrolled) ? "bg-transparent border-transparent" : "bg-white border-gray-200 shadow-sm"
   );
 
   const textColor = (isHome && !isScrolled) ? "text-white" : "text-gray-700";
@@ -60,10 +105,51 @@ const ClientHeader = ({ currentUser }) => {
     if (searchQuery.trim()) navigate(`/client/explore?q=${encodeURIComponent(searchQuery)}`);
   };
 
-  // Mock data - nanti ganti dengan API
-  const unreadNotifs = 0;
   const unreadMsgs = 0;
   const cartCount = 0;
+
+  useEffect(() => {
+    const newSocket = io('http://localhost:5000');
+    setSocket(newSocket);
+    return () => newSocket.close();
+  }, []);
+
+  useEffect(() => {
+    if (socket && userData?.user_id) {
+      socket.emit('register', userData.user_id);
+      socket.on('new_notification', (notification) => {
+        console.log('🔔 New notification:', notification);
+        setUnreadNotifs(prev => prev + 1);
+      });
+    }
+    return () => {
+      if (socket) {
+        socket.off('new_notification');
+      }
+    };
+  }, [socket, userData]);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`${API_BASE_URL}/notifications/unread/count`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUnreadNotifs(data.data.unread_count);
+      }
+    } catch (error) {
+      console.error('Failed to fetch unread count:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -71,6 +157,11 @@ const ClientHeader = ({ currentUser }) => {
     localStorage.removeItem('user');
     navigate('/login');
   };
+
+  // 🔥 AMBIL DATA UNTUK DITAMPILKAN
+  const fullName = userData?.full_name || userData?.FULL_NAME || 'Client';
+  const username = userData?.username || userData?.USERNAME || 'client';
+  const avatarUrl = userData?.avatar_url;
 
   return (
     <>
@@ -82,7 +173,7 @@ const ClientHeader = ({ currentUser }) => {
             <div className="flex items-center flex-1">
               <div
                 className={classNames("text-3xl font-black tracking-tighter cursor-pointer mr-8 transition-colors", logoColor)}
-                onClick={() => navigate('/client/dashboard')}
+                onClick={() => navigate('/client')}
               >
                 jasa<span className={classNames((isHome && !isScrolled) ? "text-emerald-300" : "text-emerald-500")}>.in</span>
                 <span className="ml-2 text-xs font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full align-middle">
@@ -112,6 +203,7 @@ const ClientHeader = ({ currentUser }) => {
 
             {/* Navigation Buttons */}
             <div className="hidden md:flex items-center space-x-4">
+              
               <button 
                 className={classNames("font-medium text-sm transition-colors px-3 py-2 rounded-lg", textColor, buttonBg)} 
                 onClick={() => navigate('/client/explore')}
@@ -144,7 +236,9 @@ const ClientHeader = ({ currentUser }) => {
 
               {/* Notification Bell */}
               <div className="relative">
-                <button className={classNames("p-2 rounded-full transition-colors", buttonBg)}>
+                <button 
+                  onClick={() => navigate('/client/notifications')}
+                  className={classNames("p-2 rounded-full transition-colors", buttonBg)}>
                   <BellIcon className={classNames("w-5 h-5", textColor)} />
                 </button>
                 {unreadNotifs > 0 && (
@@ -171,31 +265,41 @@ const ClientHeader = ({ currentUser }) => {
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} 
                   className="flex items-center focus:outline-none ml-2"
                 >
-                  <Avatar src={currentUser?.avatar_url} size="md" />
+                  <Avatar 
+                    src={getFullImageUrl(avatarUrl)} 
+                    size="md" 
+                  />
                 </button>
 
                 {isProfileMenuOpen && (
                   <div className="absolute right-0 mt-3 w-72 bg-white rounded-xl shadow-2xl py-2 z-50 border border-gray-100 overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50">
-                      <p className="font-bold text-gray-900 truncate">{currentUser?.full_name || currentUser?.FULL_NAME || 'Client'}</p>
-                      <p className="text-xs text-gray-500 truncate">@{currentUser?.username || currentUser?.USERNAME}</p>
+                      <p className="font-bold text-gray-900 truncate">{fullName}</p>
+                      <p className="text-xs text-gray-500 truncate">@{username}</p>
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Client</span>
                       </div>
                     </div>
 
                     <div className="py-2">
-                      {/* ✅ PERBAIKAN: Route yang benar untuk client */}
                       <DropdownItem 
-                        icon={User} 
-                        label="Profil Saya" 
+                        icon={LayoutGrid} 
+                        label="Dashboard" 
                         onClick={() => { 
-                          navigate(`/client/profile/${currentUser?.user_id || currentUser?.USER_ID}`); 
+                          navigate('/client/dash'); 
                           setIsProfileMenuOpen(false); 
                         }} 
                       />
                       <DropdownItem 
-                        icon={LayoutGrid} 
+                        icon={User} 
+                        label="Profil Saya" 
+                        onClick={() => { 
+                          navigate('/client/profile'); 
+                          setIsProfileMenuOpen(false); 
+                        }} 
+                      />
+                      <DropdownItem 
+                        icon={Clock} 
                         label="Pesanan Saya" 
                         onClick={() => { 
                           navigate('/client/orders'); 

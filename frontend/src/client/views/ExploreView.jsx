@@ -3,9 +3,10 @@ import { Heart, ChevronRight, Menu, Filter, SlidersHorizontal, Clock, Star, Tren
 import { formatCurrency } from '../data/helpers';
 import Avatar from '../components/ui/Avatar';
 import RatingStars from '../components/ui/RatingStars';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = 'http://localhost:5000/api';
+const STATIC_URL = 'http://localhost:5000';
 
 const ClientExploreView = ({ viewParams }) => {
   const navigate = useNavigate();
@@ -26,8 +27,17 @@ const ClientExploreView = ({ viewParams }) => {
   const [selectedSort, setSelectedSort] = useState('recommended');
   const [showProOnly, setShowProOnly] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [wishlist, setWishlist] = useState([]);
   
+  // Wishlist State
+  const [wishlist, setWishlist] = useState([]);
+  const [wishlistLoading, setWishlistLoading] = useState({});
+
+  const getFullImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${STATIC_URL}${url}`;
+  };
+
   // Fetch categories on mount
   useEffect(() => {
     fetchCategories();
@@ -38,6 +48,13 @@ const ClientExploreView = ({ viewParams }) => {
     fetchServices();
   }, [searchQuery, selectedCategory, selectedFreelancerLevel, selectedBudget, selectedDelivery, selectedSort, showProOnly]);
   
+  // Fetch wishlist status setelah services dimuat
+  useEffect(() => {
+    if (services.length > 0) {
+      fetchWishlistStatus();
+    }
+  }, [services]);
+
   const fetchCategories = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/categories`);
@@ -71,7 +88,7 @@ const ClientExploreView = ({ viewParams }) => {
     try {
       const params = new URLSearchParams();
       params.append('page', 1);
-      params.append('limit', 100); // Ambil banyak dulu, biar filter jalan di frontend
+      params.append('limit', 100);
       
       if (searchQuery) params.append('search', searchQuery);
       if (selectedCategory) params.append('category', selectedCategory);
@@ -81,22 +98,78 @@ const ClientExploreView = ({ viewParams }) => {
       if (selectedSort && selectedSort !== 'recommended') params.append('sort', selectedSort);
       if (showProOnly) params.append('level', 'top');
       
-      console.log('Fetching with params:', params.toString());
-      
       const response = await fetch(`${API_BASE_URL}/services?${params.toString()}`);
       const data = await response.json();
       
-      console.log('Total services from API:', data.data?.length || 0);
-      
       if (data.success) {
         setServices(data.data || []);
-        setVisibleServices(12); // Reset visible services saat filter berubah
+        setVisibleServices(12);
       }
     } catch (error) {
       console.error('Failed to fetch services:', error);
       setServices([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWishlistStatus = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/wishlist`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        const wishlistIds = data.data.map(item => item.SERVICE_ID);
+        setWishlist(wishlistIds);
+      }
+    } catch (error) {
+      console.error('Failed to fetch wishlist:', error);
+    }
+  };
+
+  const toggleWishlist = async (serviceId, e) => {
+    e.stopPropagation();
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    
+    setWishlistLoading(prev => ({ ...prev, [serviceId]: true }));
+    
+    try {
+      if (wishlist.includes(serviceId)) {
+        const res = await fetch(`${API_BASE_URL}/wishlist/service/${serviceId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          setWishlist(prev => prev.filter(id => id !== serviceId));
+        }
+      } else {
+        const res = await fetch(`${API_BASE_URL}/wishlist`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ service_id: serviceId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setWishlist(prev => [...prev, serviceId]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle wishlist:', error);
+    } finally {
+      setWishlistLoading(prev => ({ ...prev, [serviceId]: false }));
     }
   };
   
@@ -111,15 +184,6 @@ const ClientExploreView = ({ viewParams }) => {
   
   const loadMore = () => {
     setVisibleServices(prev => prev + 12);
-  };
-  
-  const toggleWishlist = (serviceId, e) => {
-    e.stopPropagation();
-    if (wishlist.includes(serviceId)) {
-      setWishlist(wishlist.filter(id => id !== serviceId));
-    } else {
-      setWishlist([...wishlist, serviceId]);
-    }
   };
   
   const displayedServices = services.slice(0, visibleServices);
@@ -294,7 +358,6 @@ const ClientExploreView = ({ viewParams }) => {
                 Menampilkan <span className="font-bold text-gray-900">{displayedServices.length}</span> dari <span className="font-bold text-gray-900">{services.length}</span> layanan
               </span>
               
-              {/* Pro Only Toggle */}
               <button
                 onClick={() => setShowProOnly(!showProOnly)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
@@ -308,7 +371,6 @@ const ClientExploreView = ({ viewParams }) => {
               </button>
             </div>
             
-            {/* Sort Dropdown */}
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-gray-400" />
               <select 
@@ -350,15 +412,21 @@ const ClientExploreView = ({ viewParams }) => {
                   >
                     <div className="relative h-48 overflow-hidden bg-gray-100">
                       <img 
-                        src={service.THUMBNAIL_URL || 'https://images.unsplash.com/photo-1618761714954-0b8cd0026356?auto=format&fit=crop&w=800&q=80'} 
+                        src={getFullImageUrl(service.THUMBNAIL_URL) || 'https://images.unsplash.com/photo-1618761714954-0b8cd0026356?auto=format&fit=crop&w=800&q=80'} 
                         alt={service.TITLE} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1618761714954-0b8cd0026356?auto=format&fit=crop&w=800&q=80'}
                       />
                       <button 
                         className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full text-gray-400 hover:text-red-500 hover:scale-110 transition-all z-10 shadow-sm"
                         onClick={(e) => toggleWishlist(service.SERVICE_ID, e)}
+                        disabled={wishlistLoading[service.SERVICE_ID]}
                       >
-                        <Heart className={`w-4 h-4 ${wishlist.includes(service.SERVICE_ID) ? 'fill-red-500 text-red-500' : ''}`} />
+                        {wishlistLoading[service.SERVICE_ID] ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Heart className={`w-4 h-4 ${wishlist.includes(service.SERVICE_ID) ? 'fill-red-500 text-red-500' : ''}`} />
+                        )}
                       </button>
                       {service.FREELANCER_LEVEL === 'top' && (
                         <div className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center">
@@ -370,7 +438,11 @@ const ClientExploreView = ({ viewParams }) => {
                     
                     <div className="p-4 flex-grow flex flex-col">
                       <div className="flex items-center mb-3">
-                        <Avatar src={service.SELLER_AVATAR} size="sm" />
+                        {/* 🔥 PERBAIKI AVATAR - PAKAI getFullImageUrl */}
+                        <Avatar 
+                          src={getFullImageUrl(service.SELLER_AVATAR)} 
+                          size="sm" 
+                        />
                         <div className="ml-2 flex flex-col">
                           <span className="text-sm font-bold text-gray-900 hover:underline leading-none">{service.SELLER_NAME || 'Freelancer'}</span>
                           <div className="flex items-center gap-1 mt-1">
@@ -384,7 +456,6 @@ const ClientExploreView = ({ viewParams }) => {
                         {service.TITLE}
                       </h3>
                       
-                      {/* Package Info */}
                       <div className="mt-auto pt-3 border-t border-gray-100">
                         <div className="flex justify-between items-center">
                           <div>
@@ -408,7 +479,6 @@ const ClientExploreView = ({ viewParams }) => {
                 ))}
               </div>
               
-              {/* Load More Button */}
               {hasMore && (
                 <div className="text-center mt-12">
                   <button

@@ -214,6 +214,7 @@ exports.getTransactionHistory = async (req, res) => {
     
     connection = await getConnection();
     
+    // 🔥 PAKAI ARRAY untuk params, bukan object
     let sql = `
       SELECT t.*,
              CASE 
@@ -227,41 +228,62 @@ exports.getTransactionHistory = async (req, res) => {
       WHERE t.user_id = :userId
     `;
     
-    const params = { userId };
+    const params = [];
+    params.push(userId);
     
     if (type && type !== 'all') {
       sql += ` AND t.type = :type`;
-      params.type = type;
+      params.push(type);
     }
     
     sql += ` ORDER BY t.created_at DESC`;
     
+    // Pagination dengan ROWNUM (Oracle)
     const offset = (page - 1) * limit;
-    sql += ` OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`;
-    params.offset = offset;
-    params.limit = limit;
+    const endRow = offset + limit;
     
-    const result = await connection.execute(sql, params, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    const finalSql = `
+      SELECT * FROM (
+        SELECT a.*, ROWNUM rnum FROM (
+          ${sql}
+        ) a WHERE ROWNUM <= ${endRow}
+      ) WHERE rnum > ${offset}
+    `;
     
-    // Get count
-    const countSql = sql.replace(/SELECT.*FROM/, 'SELECT COUNT(*) as total FROM').replace(/OFFSET.*$/, '');
-    const countResult = await connection.execute(countSql, params);
+    // 🔥 Kirim params sebagai array
+    const result = await connection.execute(finalSql, params, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    const cleanData = JSON.parse(JSON.stringify(result.rows));
+    
+    // 🔥 Count total (query terpisah)
+    let countSql = `
+      SELECT COUNT(*) as total
+      FROM TRANSACTIONS t
+      WHERE t.user_id = :userId
+    `;
+    const countParams = [userId];
+    
+    if (type && type !== 'all') {
+      countSql += ` AND t.type = :type`;
+      countParams.push(type);
+    }
+    
+    const countResult = await connection.execute(countSql, countParams, { outFormat: oracledb.OUT_FORMAT_OBJECT });
     const total = countResult.rows[0]?.TOTAL || 0;
     
     res.json({
       success: true,
-      data: result.rows,
+      data: cleanData,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total,
+        total: total,
         totalPages: Math.ceil(total / limit)
       }
     });
     
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('GET TRANSACTION HISTORY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   } finally {
     if (connection) await connection.close();
   }

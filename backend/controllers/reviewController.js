@@ -1,5 +1,6 @@
 const { getConnection } = require('../config/db');
 const oracledb = require('oracledb');
+const notificationController = require('./notificationController');
 
 // ================= CREATE REVIEW (Client setelah order selesai) =================
 exports.createReview = async (req, res) => {
@@ -18,7 +19,7 @@ exports.createReview = async (req, res) => {
 
     connection = await getConnection();
 
-    //Verify order belongs to client and is completed
+    // Verify order belongs to client and is completed
     const orderResult = await connection.execute(
       `SELECT o.order_id, o.freelancer_id, o.client_id, o.status,
               sp.service_id, s.title as service_title
@@ -41,36 +42,51 @@ exports.createReview = async (req, res) => {
 
     const order = orderResult.rows[0];
 
-    // Check if review already exists (order_id is UNIQUE in REVIEWS)
+    // 🔥 CEK APAKAH SUDAH ADA REVIEW - TAPI JANGAN LANGSUNG RETURN ERROR
+    // Kita akan UPDATE jika sudah ada, INSERT jika belum
     const existingReview = await connection.execute(
       `SELECT review_id FROM REVIEWS WHERE order_id = :orderId`,
       { orderId }
     );
 
+    let reviewId;
+    
     if (existingReview.rows.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Anda sudah memberikan review untuk order ini' 
-      });
+      // 🔥 UPDATE existing review (bukan error)
+      reviewId = existingReview.rows[0].REVIEW_ID;
+      await connection.execute(
+        `UPDATE REVIEWS 
+         SET rating = :rating, 
+             review_comment = :review_comment,
+             created_at = CURRENT_TIMESTAMP
+         WHERE review_id = :reviewId`,
+        {
+          rating,
+          review_comment: review_comment || null,
+          reviewId
+        }
+      );
+      
+      console.log(`✅ Review updated for order ${orderId}`);
+    } else {
+      // 🔥 INSERT new review
+      const reviewResult = await connection.execute(
+        `INSERT INTO REVIEWS (order_id, reviewer_id, rating, review_comment)
+         VALUES (:orderId, :reviewerId, :rating, :review_comment)
+         RETURNING review_id INTO :review_id`,
+        {
+          orderId,
+          reviewerId: userId,
+          rating,
+          review_comment: review_comment || null,
+          review_id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+        }
+      );
+      reviewId = reviewResult.outBinds.review_id[0];
+      console.log(`✅ New review created for order ${orderId}`);
     }
 
-    // Insert review sesuai tabel REVIEWS
-    const reviewResult = await connection.execute(
-      `INSERT INTO REVIEWS (order_id, reviewer_id, rating, review_comment)
-       VALUES (:orderId, :reviewerId, :rating, :review_comment)
-       RETURNING review_id INTO :review_id`,
-      {
-        orderId,
-        reviewerId: userId,
-        rating,
-        review_comment: review_comment || null,
-        review_id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
-      }
-    );
-
-    const reviewId = reviewResult.outBinds.review_id[0];
-
-    // Update freelancer's rating_avg dan total_orders di FREELANCER_PROFILES
+    // Update freelancer's rating_avg
     await connection.execute(
       `UPDATE FREELANCER_PROFILES fp
        SET rating_avg = (
@@ -88,39 +104,26 @@ exports.createReview = async (req, res) => {
       { freelancerId: order.FREELANCER_ID }
     );
 
-    // Update service total_orders
-    await connection.execute(
-      `UPDATE SERVICES 
-       SET total_orders = total_orders + 1 
-       WHERE service_id = :serviceId`,
-      { serviceId: order.SERVICE_ID }
-    );
-
-    // Create notification for freelancer
-    await connection.execute(
-      `INSERT INTO NOTIFICATIONS (user_id, type, title, body)
-       VALUES ((SELECT user_id FROM FREELANCER_PROFILES WHERE freelancer_id = :freelancerId), 
-               'review', 'Ulasan Baru', 
-               'Anda mendapat ulasan bintang ' || :rating || ' dari pesanan #' || :orderId)`,
-      { 
-        freelancerId: order.FREELANCER_ID, 
-        rating, 
-        orderId 
-      }
-    );
-
     await connection.commit();
+
+    const notificationController = require('./notificationController');
+    await notificationController.createNotification(
+      order.FREELANCER_USER_ID,
+      'review',
+      'Ulasan Baru',
+      `Anda menerima ulasan bintang ${rating} dari client untuk pesanan #${orderId}${review_comment ? `: "${review_comment.substring(0, 50)}${review_comment.length > 50 ? '...' : ''}"` : ''}`
+    );
 
     res.json({
       success: true,
-      message: 'Review berhasil ditambahkan',
+      message: existingReview.rows.length > 0 ? 'Review berhasil diupdate' : 'Review berhasil ditambahkan',
       data: { review_id: reviewId }
     });
 
   } catch (err) {
     if (connection) await connection.rollback();
-    console.error('CREATE REVIEW ERROR:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('CREATE/UPDATE REVIEW ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   } finally {
     if (connection) await connection.close();
   }
@@ -340,6 +343,7 @@ exports.getMyReviews = async (req, res) => {
 };
 
 // ================= UPDATE REVIEW =================
+// ================= UPDATE REVIEW =================
 exports.updateReview = async (req, res) => {
   let connection;
   try {
@@ -356,7 +360,7 @@ exports.updateReview = async (req, res) => {
     
     connection = await getConnection();
     
-    // Check ownership
+    // 🔥 CEK KEPEMILIKAN - JANGAN CEK APAKAH SUDAH ADA REVIEW LAGI
     const checkResult = await connection.execute(
       `SELECT r.*, o.freelancer_id
        FROM REVIEWS r
@@ -369,13 +373,13 @@ exports.updateReview = async (req, res) => {
     if (checkResult.rows.length === 0) {
       return res.status(404).json({ 
         success: false, 
-        message: 'Review tidak ditemukan' 
+        message: 'Review tidak ditemukan atau bukan milik Anda' 
       });
     }
     
     const oldReview = checkResult.rows[0];
     
-    // Update review
+    // 🔥 UPDATE REVIEW - LANGSUNG UPDATE, TIDAK PERLU CEK LAGI
     await connection.execute(
       `UPDATE REVIEWS 
        SET rating = :rating, 
@@ -407,7 +411,7 @@ exports.updateReview = async (req, res) => {
   } catch (err) {
     if (connection) await connection.rollback();
     console.error('UPDATE REVIEW ERROR:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   } finally {
     if (connection) await connection.close();
   }
@@ -595,6 +599,100 @@ exports.canReview = async (req, res) => {
   } catch (err) {
     console.error('CAN REVIEW ERROR:', err);
     res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+// ================= GET REVIEW BY ORDER ID =================
+exports.getReviewByOrderId = async (req, res) => {
+  let connection;
+  try {
+    const { orderId } = req.params;
+    
+    connection = await getConnection();
+    
+    const result = await connection.execute(
+      `SELECT r.review_id, r.order_id, r.rating, r.review_comment, r.created_at,
+              u.user_id, u.full_name as reviewer_name, u.avatar_url as reviewer_avatar
+       FROM REVIEWS r
+       JOIN USERS u ON r.reviewer_id = u.user_id
+       WHERE r.order_id = :orderId`,
+      { orderId: parseInt(orderId) },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    if (result.rows.length === 0) {
+      return res.json({
+        success: true,
+        data: null,
+        message: 'Belum ada review'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+    
+  } catch (err) {
+    console.error('GET REVIEW BY ORDER ID ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+// ================= GET REVIEWS BY USER (Review yang DIBERIKAN user) =================
+exports.getReviewsByUser = async (req, res) => {
+  let connection;
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    
+    connection = await getConnection();
+    const offset = (page - 1) * limit;
+    
+    const result = await connection.execute(
+      `SELECT r.review_id, r.order_id, r.rating, r.review_comment, r.created_at,
+              s.title as service_title,
+              u.full_name as freelancer_name, u.avatar_url as freelancer_avatar
+       FROM REVIEWS r
+       JOIN ORDERS o ON r.order_id = o.order_id
+       JOIN SERVICE_PACKAGES sp ON o.package_id = sp.package_id
+       JOIN SERVICES s ON sp.service_id = s.service_id
+       JOIN FREELANCER_PROFILES fp ON o.freelancer_id = fp.freelancer_id
+       JOIN USERS u ON fp.user_id = u.user_id
+       WHERE r.reviewer_id = :userId
+       ORDER BY r.created_at DESC
+       OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`,
+      { userId, offset, limit },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    // Get stats
+    const statsResult = await connection.execute(
+      `SELECT 
+         COUNT(*) as total_reviews,
+         NVL(AVG(rating), 0) as avg_rating,
+         COUNT(CASE WHEN rating = 5 THEN 1 END) as rating_5,
+         COUNT(CASE WHEN rating = 4 THEN 1 END) as rating_4,
+         COUNT(CASE WHEN rating = 3 THEN 1 END) as rating_3,
+         COUNT(CASE WHEN rating = 2 THEN 1 END) as rating_2,
+         COUNT(CASE WHEN rating = 1 THEN 1 END) as rating_1
+       FROM REVIEWS
+       WHERE reviewer_id = :userId`,
+      { userId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    res.json({
+      success: true,
+      data: result.rows,
+      stats: statsResult.rows[0] || { total_reviews: 0, avg_rating: 0 }
+    });
+    
+  } catch (err) {
+    console.error('GET REVIEWS BY USER ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   } finally {
     if (connection) await connection.close();
   }

@@ -328,6 +328,16 @@ exports.createNotification = async (userId, type, title, body) => {
     );
     
     await connection.commit();
+
+    if (global.sendNotificationToUser) {
+      global.sendNotificationToUser(userId, {
+        notif_id: result.outBinds.notif_id[0],
+        type,
+        title,
+        body,
+        created_at: new Date()
+      });
+    }
     
     return {
       success: true,

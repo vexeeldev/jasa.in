@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { 
   Star, Clock, Monitor, Shield, Heart, List, ChevronLeft, ChevronRight, 
   CheckCircle, AlertCircle, Truck, Award, Users, FileText, MessageCircle,
-  Zap, DollarSign, Loader2
+  Zap, DollarSign, Loader2, UserCircle, Briefcase, Calendar
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../data/helpers';
 import Avatar from '../components/ui/Avatar';
@@ -12,6 +12,7 @@ import Button from '../components/ui/Button';
 import RatingStars from '../components/ui/RatingStars';
 
 const API_BASE_URL = 'http://localhost:5000/api';
+const STATIC_URL = 'http://localhost:5000';
 
 const ClientServiceDetailView = () => {
   const navigate = useNavigate();
@@ -21,10 +22,20 @@ const ClientServiceDetailView = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('basic');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  // WISHLIST STATE
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+
+  const getFullImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${STATIC_URL}${url}`;
+  };
 
   useEffect(() => {
     fetchService();
+    checkWishlistStatus();
   }, [id]);
 
   const fetchService = async () => {
@@ -46,17 +57,68 @@ const ClientServiceDetailView = () => {
     }
   };
 
+  const checkWishlistStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const res = await fetch(`${API_BASE_URL}/wishlist/check/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsWishlisted(data.data.is_in_wishlist);
+      }
+    } catch (error) {
+      console.error('Failed to check wishlist:', error);
+    }
+  };
+
+  const toggleWishlist = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    
+    setWishlistLoading(true);
+    try {
+      if (isWishlisted) {
+        const res = await fetch(`${API_BASE_URL}/wishlist/service/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          setIsWishlisted(false);
+        }
+      } else {
+        const res = await fetch(`${API_BASE_URL}/wishlist`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ service_id: id })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setIsWishlisted(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle wishlist:', error);
+      alert('Gagal menyimpan ke wishlist');
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
+
   const handleBuyNow = (packageId) => {
     navigate(`/client/checkout/${packageId}`);
   };
 
-  // 🔥 Tombol "Tanya Sebelum Beli" - redirect ke direct chat
   const handleContactSeller = () => {
-    console.log('🔵 Mengirim state ke messages:', { 
-      receiverId: service?.SELLER_ID,
-      receiverName: service?.SELLER_NAME 
-    });
-    
     navigate('/client/messages', { 
       state: { 
         receiverId: service?.SELLER_ID,
@@ -65,6 +127,15 @@ const ClientServiceDetailView = () => {
         type: 'direct'
       } 
     });
+  };
+
+  // 🔥 Navigasi ke profile freelancer
+  const handleViewProfile = () => {
+    if (service?.SELLER_ID) {
+      navigate(`/client/profile/${service.SELLER_ID}`);
+    } else {
+      navigate('/client/fprofile');
+    }
   };
 
   if (loading) {
@@ -88,11 +159,9 @@ const ClientServiceDetailView = () => {
     );
   }
 
-  // Ambil packages dari API (format array)
   const packages = service.PACKAGES || [];
   const currentPackage = packages.find(p => p.PACKAGE_NAME === activeTab) || packages[0];
   
-  // 🔥 Buat array gallery dari image_1, image_2, image_3
   const getGallery = () => {
     const gallery = [];
     if (service?.IMAGE_1) gallery.push(service.IMAGE_1);
@@ -140,14 +209,14 @@ const ClientServiceDetailView = () => {
           {/* Seller Summary */}
           <div className="flex flex-wrap items-center justify-between mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
             <div className="flex items-center">
-              <div className="cursor-pointer" onClick={() => navigate(`/client/profile/${service.SELLER_ID}`)}>
-                <Avatar src={service.SELLER_AVATAR} size="md" />
+              <div className="cursor-pointer" onClick={handleViewProfile}>
+                <Avatar src={getFullImageUrl(service.SELLER_AVATAR) } size="md" />
               </div>
               <div className="ml-3">
                 <div className="flex items-center gap-2">
                   <span 
                     className="font-bold text-gray-900 hover:text-emerald-600 cursor-pointer text-base"
-                    onClick={() => navigate(`/client/profile/${service.SELLER_ID}`)}
+                    onClick={handleViewProfile}
                   >
                     {service.SELLER_NAME}
                   </span>
@@ -170,13 +239,13 @@ const ClientServiceDetailView = () => {
           <div className="mb-8">
             <div className="relative w-full aspect-[16/9] bg-gray-100 rounded-xl overflow-hidden mb-4 border border-gray-200 shadow-sm">
               <img 
-                src={service.THUMBNAIL_URL || gallery[0] || 'https://via.placeholder.com/800x450?text=No+Image'} 
+                src={getFullImageUrl(service.THUMBNAIL_URL || gallery[0]) || 'https://via.placeholder.com/800x450?text=No+Image'} 
                 alt={service.TITLE} 
                 className="w-full h-full object-cover"
+                onError={(e) => e.target.src = 'https://via.placeholder.com/800x450?text=No+Image'}
               />
             </div>
             
-            {/* Thumbnails */}
             {gallery.length > 1 && (
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {gallery.map((img, idx) => (
@@ -187,7 +256,7 @@ const ClientServiceDetailView = () => {
                     }`}
                     onClick={() => setActiveImageIndex(idx)}
                   >
-                    <img src={img} className="w-full h-full object-cover" alt="" />
+                    <img src={getFullImageUrl(img)} className="w-full h-full object-cover" alt="" />
                   </div>
                 ))}
               </div>
@@ -231,7 +300,7 @@ const ClientServiceDetailView = () => {
             </div>
           </div>
 
-          {/* About Seller */}
+          {/* 🔥 About Seller - LENGKAP dengan Tombol Lihat Profile */}
           <div className="mb-8">
             <h2 className="text-xl font-black text-gray-900 mb-4 pb-3 border-b border-gray-200 flex items-center">
               <Users className="w-5 h-5 mr-2 text-emerald-500" />
@@ -239,18 +308,31 @@ const ClientServiceDetailView = () => {
             </h2>
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6">
               <div className="flex flex-col md:flex-row items-center md:items-start text-center md:text-left mb-6">
-                <Avatar src={service.SELLER_AVATAR} size="xl" />
+                <div className="cursor-pointer" onClick={handleViewProfile}>
+                  <Avatar src={getFullImageUrl(service.SELLER_AVATAR)} size="xl" />
+                </div>
                 <div className="md:ml-6 mt-4 md:mt-0 flex-1">
-                  <h3 className="text-2xl font-black text-gray-900">{service.SELLER_NAME}</h3>
+                  <h3 
+                    className="text-2xl font-black text-gray-900 hover:text-emerald-600 cursor-pointer"
+                    onClick={handleViewProfile}
+                  >
+                    {service.SELLER_NAME}
+                  </h3>
                   <p className="text-gray-500 font-bold mb-2">@{service.USERNAME || service.SELLER_NAME}</p>
                   <div className="flex justify-center md:justify-start items-center gap-3 mb-3">
                     <RatingStars rating={avgRating} size={16} />
                     <span className="text-sm text-gray-500">{totalReviews} ulasan</span>
+                    <span className="text-xs text-gray-300">|</span>
+                    <span className="text-sm text-gray-500">{completedOrders} proyek selesai</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-3 flex-wrap">
                     <Button size="md" onClick={handleContactSeller}>
                       <MessageCircle className="w-4 h-4 mr-2" />
                       Tanya Sebelum Beli
+                    </Button>
+                    <Button size="md" variant="outline" onClick={handleViewProfile}>
+                      <UserCircle className="w-4 h-4 mr-2" />
+                      Lihat Profile Lengkap
                     </Button>
                   </div>
                 </div>
@@ -272,7 +354,6 @@ const ClientServiceDetailView = () => {
                 <h3 className="font-black text-gray-900">Pilih Paket Layanan</h3>
               </div>
 
-              {/* Package Tabs */}
               {packages.length > 1 && (
                 <div className="flex border-b border-gray-200">
                   {packages.map((pkg) => (
@@ -297,13 +378,11 @@ const ClientServiceDetailView = () => {
                 </h4>
                 <p className="text-xs text-gray-500 mb-4">{currentPackage?.DESCRIPTION || '-'}</p>
 
-                {/* Price */}
                 <div className="mb-4">
                   <span className="text-3xl font-black text-gray-900">{formatCurrency(currentPackage?.PRICE || 0)}</span>
                   <span className="text-sm text-gray-500 ml-1">/ paket</span>
                 </div>
 
-                {/* Package Features */}
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center text-sm">
                     <Clock className="w-4 h-4 text-gray-400 mr-3" />
@@ -322,7 +401,6 @@ const ClientServiceDetailView = () => {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <Button size="lg" fullWidth onClick={() => handleBuyNow(currentPackage?.PACKAGE_ID)} className="mb-3">
                   Beli Sekarang
                 </Button>
@@ -333,10 +411,15 @@ const ClientServiceDetailView = () => {
                 </Button>
 
                 <button 
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={toggleWishlist}
+                  disabled={wishlistLoading}
                   className="w-full mt-3 text-center text-sm text-gray-500 hover:text-emerald-600 transition-colors flex items-center justify-center gap-1"
                 >
-                  <Heart className={`w-4 h-4 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+                  {wishlistLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Heart className={`w-4 h-4 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+                  )}
                   {isWishlisted ? 'Hapus dari Tersimpan' : 'Simpan ke Daftar Tersimpan'}
                 </button>
               </div>

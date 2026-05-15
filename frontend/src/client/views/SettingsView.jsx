@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Lock, CreditCard, X, Bell, MapPin, Globe, Shield, Smartphone, Mail, Key, Eye, EyeOff, Save, Loader2 } from 'lucide-react';
+import { User, Lock, CreditCard, X, Bell, MapPin, Globe, Shield, Smartphone, Mail, Key, Eye, EyeOff, Save, Loader2, Plus, Trash2 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
@@ -8,15 +8,25 @@ import Input from '../components/ui/Input';
 import { classNames } from '../data/helpers';
 
 const API_BASE_URL = 'http://localhost:5000/api';
+const STATIC_URL = 'http://localhost:5000';
 
 const ClientSettingsView = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [billingMethods, setBillingMethods] = useState([]);
+  const [showAddBilling, setShowAddBilling] = useState(false);
+  const [newBilling, setNewBilling] = useState({
+    bank_name: '',
+    account_number: '',
+    account_name: '',
+    is_default: false
+  });
   
   // Form states
   const [formData, setFormData] = useState({
@@ -39,9 +49,16 @@ const ClientSettingsView = () => {
     confirmPassword: ''
   });
 
+  const getFullImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    return `${STATIC_URL}${url}`;
+  };
+
   // Fetch user profile
   useEffect(() => {
     fetchUserProfile();
+    fetchBillingMethods();
   }, []);
 
   const fetchUserProfile = async () => {
@@ -72,6 +89,21 @@ const ClientSettingsView = () => {
       console.error('Failed to fetch profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBillingMethods = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/billing`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBillingMethods(data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch billing methods:', error);
     }
   };
 
@@ -112,11 +144,42 @@ const ClientSettingsView = () => {
       if (data.success) {
         alert('Profil berhasil diperbarui!');
         fetchUserProfile();
+        window.dispatchEvent(new Event('userUpdated'));
       } else {
         alert(data.message || 'Gagal update profil');
       }
     } catch (error) {
       console.error('Failed to update profile:', error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/notifications`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          notification_email: formData.notificationEmail,
+          notification_whatsapp: formData.notificationWhatsapp,
+          notification_promo: formData.notificationPromo
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Preferensi notifikasi berhasil disimpan!');
+      } else {
+        alert(data.message || 'Gagal menyimpan preferensi');
+      }
+    } catch (error) {
+      console.error('Failed to save notifications:', error);
       alert('Terjadi kesalahan');
     } finally {
       setSaving(false);
@@ -166,8 +229,8 @@ const ClientSettingsView = () => {
     const file = e.target.files[0];
     if (!file) return;
     
-    const formData = new FormData();
-    formData.append('avatar', file);
+    const formDataUpload = new FormData();
+    formDataUpload.append('avatar', file);
     
     setSaving(true);
     try {
@@ -177,17 +240,106 @@ const ClientSettingsView = () => {
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        body: formData
+        body: formDataUpload
       });
       const data = await res.json();
       if (data.success) {
         alert('Avatar berhasil diupdate!');
         fetchUserProfile();
+        window.dispatchEvent(new Event('userUpdated'));
       } else {
         alert(data.message || 'Gagal upload avatar');
       }
     } catch (error) {
       console.error('Failed to upload avatar:', error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleAddBilling = async () => {
+    if (!newBilling.bank_name || !newBilling.account_number || !newBilling.account_name) {
+      alert('Data tidak lengkap');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/billing`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newBilling)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Metode pembayaran berhasil ditambahkan!');
+        setShowAddBilling(false);
+        setNewBilling({ bank_name: '', account_number: '', account_name: '', is_default: false });
+        fetchBillingMethods();
+      } else {
+        alert(data.message || 'Gagal menambah metode pembayaran');
+      }
+    } catch (error) {
+      console.error('Failed to add billing:', error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSetDefaultBilling = async (id) => {
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/billing/${id}/default`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Metode pembayaran default berhasil diubah!');
+        fetchBillingMethods();
+      } else {
+        alert(data.message || 'Gagal mengubah default');
+      }
+    } catch (error) {
+      console.error('Failed to set default billing:', error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteBilling = async (id) => {
+    if (!confirm('Hapus metode pembayaran ini?')) return;
+    
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/billing/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Metode pembayaran berhasil dihapus!');
+        fetchBillingMethods();
+      } else {
+        alert(data.message || 'Gagal menghapus');
+      }
+    } catch (error) {
+      console.error('Failed to delete billing:', error);
       alert('Terjadi kesalahan');
     } finally {
       setSaving(false);
@@ -212,6 +364,14 @@ const ClientSettingsView = () => {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-gray-50 min-h-screen">
       
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+        onChange={handleUploadAvatar}
+        className="hidden"
+      />
+
       <div className="mb-8">
         <h1 className="text-3xl font-black text-gray-900">Pengaturan Akun</h1>
         <p className="text-gray-500 font-medium mt-1">Kelola profil, keamanan, dan preferensi akun Anda</p>
@@ -224,7 +384,12 @@ const ClientSettingsView = () => {
           <div className="w-full md:w-72 bg-gradient-to-b from-gray-50 to-white border-r border-gray-200">
             <div className="p-5 border-b border-gray-200">
               <div className="flex items-center gap-3">
-                <Avatar src={currentUser?.avatar_url} size="lg" />
+                <div className="relative cursor-pointer group" onClick={triggerFileUpload}>
+                  <Avatar src={getFullImageUrl(currentUser?.avatar_url)} size="lg" />
+                  <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera className="w-5 h-5 text-white" />
+                  </div>
+                </div>
                 <div>
                   <h3 className="font-black text-gray-900">{formData.fullName || currentUser?.full_name}</h3>
                   <p className="text-xs text-gray-500">@{formData.username || currentUser?.username}</p>
@@ -271,23 +436,20 @@ const ClientSettingsView = () => {
 
                 {/* Avatar Section */}
                 <div className="flex flex-col sm:flex-row items-center mb-8 pb-6 border-b border-gray-100">
-                  <Avatar src={currentUser?.avatar_url} size="xl" />
+                  <div className="relative cursor-pointer group" onClick={triggerFileUpload}>
+                    <Avatar src={getFullImageUrl(currentUser?.avatar_url)} size="xl" />
+                    <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Camera className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
                   <div className="text-center sm:text-left sm:ml-6 mt-4 sm:mt-0">
                     <div className="flex gap-2">
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleUploadAvatar}
-                          className="hidden"
-                        />
-                        <Button variant="secondary" size="sm" className="font-bold" disabled={saving}>
-                          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Unggah Foto Baru'}
-                        </Button>
-                      </label>
+                      <Button variant="secondary" size="sm" className="font-bold" onClick={triggerFileUpload} disabled={saving}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Unggah Foto Baru'}
+                      </Button>
                       <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">Hapus</Button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">Format JPG atau PNG. Maks 2MB.</p>
+                    <p className="text-xs text-gray-500 mt-2">Format JPG atau PNG. Maks 2MB. Klik foto untuk ganti</p>
                   </div>
                 </div>
 
@@ -364,8 +526,8 @@ const ClientSettingsView = () => {
 
                 <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end gap-3">
                   <Button variant="ghost" onClick={() => fetchUserProfile()}>Batal</Button>
-                  <Button onClick={handleSaveProfile} icon={Save} disabled={saving}>
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  <Button onClick={handleSaveProfile} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                     Simpan Perubahan
                   </Button>
                 </div>
@@ -426,13 +588,22 @@ const ClientSettingsView = () => {
                       <label className="block text-sm font-bold text-gray-700 mb-2">
                         Konfirmasi Password Baru
                       </label>
-                      <input
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={passwordData.confirmPassword}
-                        onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                        placeholder="Ketik ulang password baru"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={passwordData.confirmPassword}
+                          onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                          placeholder="Ketik ulang password baru"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
                     </div>
 
                     <Button onClick={handleChangePassword} disabled={saving}>
@@ -540,7 +711,8 @@ const ClientSettingsView = () => {
                 </div>
 
                 <div className="mt-8 pt-4 border-t border-gray-200 flex justify-end">
-                  <Button onClick={() => alert('Preferensi notifikasi disimpan!')}>
+                  <Button onClick={handleSaveNotifications} disabled={saving}>
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                     Simpan Preferensi
                   </Button>
                 </div>
@@ -555,33 +727,98 @@ const ClientSettingsView = () => {
                   <p className="text-sm text-gray-500">Kelola metode pembayaran untuk transaksi Anda</p>
                 </div>
 
-                <div className="space-y-3 mb-8">
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-8 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-bold">BCA</div>
-                      <div>
-                        <p className="font-bold text-gray-900">Bank Central Asia</p>
-                        <p className="text-xs text-gray-500">****1234</p>
-                      </div>
+                <div className="space-y-3 mb-6">
+                  {billingMethods.length === 0 ? (
+                    <div className="text-center py-8 bg-gray-50 rounded-xl">
+                      <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500">Belum ada metode pembayaran</p>
                     </div>
-                    <Badge variant="success">Default</Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-8 bg-red-600 rounded flex items-center justify-center text-white text-xs font-bold">MDR</div>
-                      <div>
-                        <p className="font-bold text-gray-900">Bank Mandiri</p>
-                        <p className="text-xs text-gray-500">****5678</p>
+                  ) : (
+                    billingMethods.map((method) => (
+                      <div key={method.PAYMENT_METHOD_ID} className="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-8 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-bold">
+                            {method.BANK_NAME?.substring(0, 3)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900">{method.BANK_NAME}</p>
+                            <p className="text-xs text-gray-500">****{method.ACCOUNT_NUMBER?.slice(-4)}</p>
+                            <p className="text-xs text-gray-400">{method.ACCOUNT_NAME}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {method.IS_DEFAULT === 1 && (
+                            <Badge variant="success">Default</Badge>
+                          )}
+                          {method.IS_DEFAULT !== 1 && (
+                            <Button variant="ghost" size="sm" onClick={() => handleSetDefaultBilling(method.PAYMENT_METHOD_ID)}>
+                              Set Default
+                            </Button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteBilling(method.PAYMENT_METHOD_ID)}
+                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <Button variant="ghost" size="sm">Set Default</Button>
-                  </div>
+                    ))
+                  )}
                 </div>
 
-                <Button variant="outline" className="w-full">
-                  + Tambah Metode Pembayaran Baru
-                </Button>
+                {showAddBilling ? (
+                  <div className="border border-gray-200 rounded-xl p-5 mb-4">
+                    <h4 className="font-bold text-gray-900 mb-4">Tambah Metode Pembayaran</h4>
+                    <div className="space-y-3">
+                      <select
+                        value={newBilling.bank_name}
+                        onChange={(e) => setNewBilling({...newBilling, bank_name: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                      >
+                        <option value="">Pilih Bank</option>
+                        <option value="BCA">BCA</option>
+                        <option value="Mandiri">Mandiri</option>
+                        <option value="BNI">BNI</option>
+                        <option value="BRI">BRI</option>
+                        <option value="Permata">Permata</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Nomor Rekening"
+                        value={newBilling.account_number}
+                        onChange={(e) => setNewBilling({...newBilling, account_number: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nama Pemilik Rekening"
+                        value={newBilling.account_name}
+                        onChange={(e) => setNewBilling({...newBilling, account_name: e.target.value})}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={newBilling.is_default}
+                          onChange={(e) => setNewBilling({...newBilling, is_default: e.target.checked})}
+                        />
+                        <span className="text-sm text-gray-700">Jadikan metode pembayaran default</span>
+                      </label>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button onClick={handleAddBilling} disabled={saving}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan'}
+                      </Button>
+                      <Button variant="ghost" onClick={() => setShowAddBilling(false)}>Batal</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" className="w-full" onClick={() => setShowAddBilling(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Tambah Metode Pembayaran Baru
+                  </Button>
+                )}
 
                 <div className="mt-8 pt-6 border-t border-gray-200">
                   <h3 className="font-black text-gray-900 mb-3">Riwayat Transaksi</h3>
@@ -614,5 +851,13 @@ const Badge = ({ variant, children, className }) => {
     </span>
   );
 };
+
+// Tambahkan Camera icon jika belum ada
+const Camera = ({ className }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
 
 export default ClientSettingsView;

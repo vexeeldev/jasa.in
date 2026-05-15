@@ -1,54 +1,114 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Wallet, ArrowDownLeft, ArrowUpRight, Plus, 
   Clock, Search, Filter, CheckCircle, CreditCard, FileText,
-  Eye, EyeOff, ShoppingBag, History, AlertCircle
+  Eye, EyeOff, ShoppingBag, History, AlertCircle, Loader2
 } from 'lucide-react';
 import { formatCurrency, formatDate, classNames } from '../data/helpers';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 
-// ============================================================================
-// MOCK DATA CLIENT VERSION
-// ============================================================================
-
-const MOCK_DATA_CLIENT = {
-  current_balance: 8750000,
-  pending_escrow: 3150000, // Dana ditahan untuk pesanan aktif
-  total_spent: 12500000,   // Total belanja seumur hidup
-  
-  transactions: [
-    { id: 'TP-001', type: 'in', amount: 5000000, date: '2026-04-15T10:30:00Z', title: 'Top Up Saldo', method: 'BCA Transfer', status: 'success' },
-    { id: 'TP-002', type: 'in', amount: 2000000, date: '2026-04-10T14:20:00Z', title: 'Top Up Saldo', method: 'GoPay', status: 'success' },
-    { id: 'ORD-901', type: 'out', amount: 3150000, date: '2026-04-12T09:15:00Z', title: 'Pembelian Jasa', service: 'Desain Logo Premium', status: 'pending' },
-    { id: 'ORD-902', type: 'out', amount: 1250000, date: '2026-04-05T16:45:00Z', title: 'Pembelian Jasa', service: 'Website Company Profile', status: 'success' },
-    { id: 'ORD-903', type: 'out', amount: 850000, date: '2026-03-28T11:00:00Z', title: 'Pembelian Jasa', service: 'Video Animasi 2D', status: 'success' },
-    { id: 'REF-001', type: 'in', amount: 250000, date: '2026-03-20T08:00:00Z', title: 'Refund Pesanan', service: 'SEO Article', status: 'success' },
-  ]
-};
+const API_BASE_URL = 'http://localhost:5000/api';
 
 const ClientWalletView = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [showBalance, setShowBalance] = useState(true);
-
-  const sortedTransactions = [...MOCK_DATA_CLIENT.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const filteredLedger = sortedTransactions.filter(trx => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'in') return trx.type === 'in';
-    if (activeTab === 'out') return trx.type === 'out';
-    return true;
+  const [loading, setLoading] = useState(true);
+  const [walletData, setWalletData] = useState({
+    balance: 0,
+    pending_escrow: 0,
+    total_spent: 0,
+    transactions: []
   });
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchWalletData();
+    fetchTransactions();
+  }, []);
+
+  const fetchWalletData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/wallet`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWalletData(prev => ({
+          ...prev,
+          balance: data.data.balance || 0,
+          pending_escrow: data.data.pending_escrow || 0,
+          total_spent: data.data.total_spent || 0
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch wallet:', error);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/wallet/transactions`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWalletData(prev => ({
+          ...prev,
+          transactions: data.data || []
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTopUp = () => {
-    // TODO: Open top up modal
-    alert('Fitur Top Up akan segera hadir');
+    navigate('/client/topup');
   };
 
   const handleWithdraw = () => {
-    // TODO: Open withdraw modal (untuk refund/komisi)
-    alert('Penarikan dana hanya untuk refund atau komisi affiliate');
+    alert('Fitur penarikan dana akan segera hadir');
   };
+
+  // Filter transactions berdasarkan tab dan search
+  const filteredTransactions = walletData.transactions
+    .filter(trx => {
+      if (activeTab === 'all') return true;
+      if (activeTab === 'in') return trx.TYPE === 'credit';
+      if (activeTab === 'out') return trx.TYPE === 'debit';
+      return true;
+    })
+    .filter(trx => {
+      if (!searchTerm) return true;
+      const title = trx.REFERENCE_TYPE === 'topup' ? 'Top Up Saldo' :
+                    trx.REFERENCE_TYPE === 'refund' ? 'Refund Pesanan' :
+                    trx.REFERENCE_TYPE === 'order' ? 'Pembelian Jasa' : '';
+      return title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             String(trx.TRANSACTION_ID).includes(searchTerm);
+    })
+    .sort((a, b) => new Date(b.CREATED_AT) - new Date(a.CREATED_AT));
+
+  const Shield = ({ className }) => (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-gray-50 min-h-screen">
@@ -80,7 +140,7 @@ const ClientWalletView = () => {
         </div>
       </div>
 
-      {/* Summary Metrics - Client Version */}
+      {/* Summary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
         
         {/* Main Balance Card */}
@@ -95,7 +155,6 @@ const ClientWalletView = () => {
             <button 
               onClick={() => setShowBalance(!showBalance)}
               className="p-1.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-colors focus:outline-none"
-              title={showBalance ? "Sembunyikan Saldo" : "Tampilkan Saldo"}
             >
               {showBalance ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -103,7 +162,7 @@ const ClientWalletView = () => {
           
           <div className="mb-4">
             <h2 className="text-5xl md:text-6xl font-black tracking-tighter">
-              {showBalance ? formatCurrency(MOCK_DATA_CLIENT.current_balance) : 'Rp •••••••••'}
+              {showBalance ? formatCurrency(walletData.balance) : 'Rp •••••••••'}
             </h2>
           </div>
           
@@ -112,7 +171,7 @@ const ClientWalletView = () => {
           </p>
         </Card>
 
-        {/* Secondary Metrics - Client Specific */}
+        {/* Secondary Metrics */}
         <div className="flex flex-col gap-5">
           <Card className="bg-white">
             <div className="flex items-start justify-between">
@@ -121,7 +180,7 @@ const ClientWalletView = () => {
                   Dana Ditahan
                 </p>
                 <h3 className="text-2xl font-black text-gray-900">
-                  {showBalance ? formatCurrency(MOCK_DATA_CLIENT.pending_escrow) : 'Rp •••••••'}
+                  {showBalance ? formatCurrency(walletData.pending_escrow) : 'Rp •••••••'}
                 </h3>
                 <div className="flex items-center text-[10px] text-orange-600 font-bold mt-2 bg-orange-50 w-max px-2 py-0.5 rounded">
                   <Clock className="w-3 h-3 mr-1" /> 
@@ -139,7 +198,7 @@ const ClientWalletView = () => {
                   Total Belanja
                 </p>
                 <h3 className="text-2xl font-black text-gray-900">
-                  {showBalance ? formatCurrency(MOCK_DATA_CLIENT.total_spent) : 'Rp •••••••'}
+                  {showBalance ? formatCurrency(walletData.total_spent) : 'Rp •••••••'}
                 </h3>
                 <p className="text-[10px] text-gray-400 font-bold mt-2 uppercase tracking-wider">
                   Seumur Hidup
@@ -151,7 +210,7 @@ const ClientWalletView = () => {
         </div>
       </div>
 
-      {/* How Escrow Works - Client Education */}
+      {/* How Escrow Works */}
       <div className="mb-8 p-4 bg-blue-50 rounded-xl border border-blue-100">
         <div className="flex items-start gap-3">
           <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -178,17 +237,16 @@ const ClientWalletView = () => {
               <input 
                 type="text" 
                 placeholder="Cari transaksi..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
               />
             </div>
-            <button className="p-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
-              <Filter className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
-        {/* Filter Tabs - Client Version */}
-        <div className="px-6 py-3 border-b border-gray-100 flex gap-2 overflow-x-auto custom-scrollbar bg-gray-50">
+        {/* Filter Tabs */}
+        <div className="px-6 py-3 border-b border-gray-100 flex gap-2 overflow-x-auto bg-gray-50">
           {[
             { id: 'all', label: 'Semua Transaksi' },
             { id: 'in', label: 'Top Up & Refund (+)' },
@@ -209,58 +267,65 @@ const ClientWalletView = () => {
 
         {/* Transaction List */}
         <div className="divide-y divide-gray-100">
-          {filteredLedger.length > 0 ? (
-            filteredLedger.map((trx, idx) => (
-              <div key={idx} className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-gray-50 transition-colors group">
-                <div className="flex items-start sm:items-center gap-4 w-full sm:w-auto">
-                  <div className={classNames(
-                    "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
-                    trx.type === 'in' 
-                      ? "bg-emerald-50 border border-emerald-100" 
-                      : "bg-gray-50 border border-gray-100"
-                  )}>
-                    {trx.type === 'in' ? (
-                      trx.title === 'Refund Pesanan' ? 
-                        <ArrowDownLeft className="w-5 h-5 text-orange-500" /> : 
-                        <Plus className="w-5 h-5 text-emerald-500" />
-                    ) : (
-                      <ShoppingBag className="w-5 h-5 text-gray-700" />
-                    )}
+          {filteredTransactions.length > 0 ? (
+            filteredTransactions.map((trx, idx) => {
+              const isCredit = trx.TYPE === 'credit';
+              const isRefund = trx.REFERENCE_TYPE === 'refund';
+              
+              // 🔥 AMAN: Konversi ID ke string terlebih dahulu
+              const transactionId = String(trx.TRANSACTION_ID || trx.ID || '');
+              const shortId = transactionId.length > 8 ? transactionId.slice(-8) : transactionId;
+              
+              // Tentukan title transaksi
+              let title = '';
+              if (trx.REFERENCE_TYPE === 'topup') title = 'Top Up Saldo';
+              else if (trx.REFERENCE_TYPE === 'refund') title = 'Refund Pesanan';
+              else if (trx.REFERENCE_TYPE === 'order') title = 'Pembelian Jasa';
+              else if (trx.REFERENCE_TYPE === 'order_completed') title = 'Pembayaran Freelancer';
+              else if (trx.REFERENCE_TYPE === 'auto_refund') title = 'Auto Refund - Order Expired';
+              else title = trx.TITLE || 'Transaksi';
+              
+              return (
+                <div key={idx} className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-gray-50 transition-colors group">
+                  <div className="flex items-start sm:items-center gap-4 w-full sm:w-auto">
+                    <div className={classNames(
+                      "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                      isCredit ? "bg-emerald-50 border border-emerald-100" : "bg-gray-50 border border-gray-100"
+                    )}>
+                      {isCredit ? (
+                        isRefund ? 
+                          <ArrowDownLeft className="w-5 h-5 text-orange-500" /> : 
+                          <Plus className="w-5 h-5 text-emerald-500" />
+                      ) : (
+                        <ShoppingBag className="w-5 h-5 text-gray-700" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm md:text-base">{title}</h4>
+                      <div className="flex items-center mt-1 text-[10px] text-gray-400 font-medium">
+                        <span>{formatDate(trx.CREATED_AT)}</span>
+                        <span className="mx-2 text-gray-300">•</span>
+                        <span className="font-mono">#{shortId}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-gray-900 text-sm md:text-base">{trx.title}</h4>
-                    {trx.service && (
-                      <p className="text-xs text-gray-500 mt-0.5">{trx.service}</p>
-                    )}
-                    {trx.method && (
-                      <p className="text-xs text-gray-400 mt-0.5">via {trx.method}</p>
-                    )}
-                    <div className="flex items-center mt-1 text-[10px] text-gray-400 font-medium">
-                      <span>{formatDate(trx.date)}</span>
-                      <span className="mx-2 text-gray-300">•</span>
-                      <span className="font-mono">{trx.id}</span>
+                  <div className="text-left sm:text-right w-full sm:w-auto pl-14 sm:pl-0 mt-3 sm:mt-0">
+                    <p className={classNames(
+                      "font-black text-base md:text-lg",
+                      isCredit ? "text-emerald-600" : "text-gray-900"
+                    )}>
+                      {isCredit ? '+' : '-'}
+                      {showBalance ? formatCurrency(trx.AMOUNT) : 'Rp •••••••'}
+                    </p>
+                    <div className="flex sm:justify-end mt-1">
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-600">
+                        Selesai
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div className="text-left sm:text-right w-full sm:w-auto pl-14 sm:pl-0 mt-3 sm:mt-0">
-                  <p className={classNames(
-                    "font-black text-base md:text-lg",
-                    trx.type === 'in' ? "text-emerald-600" : "text-gray-900"
-                  )}>
-                    {trx.type === 'in' ? '+' : '-'}
-                    {showBalance ? formatCurrency(trx.amount) : 'Rp •••••••'}
-                  </p>
-                  <div className="flex sm:justify-end mt-1">
-                    <span className={classNames(
-                      "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded",
-                      trx.status === 'success' ? "bg-emerald-50 text-emerald-600" : "bg-yellow-50 text-yellow-600"
-                    )}>
-                      {trx.status === 'success' ? 'Selesai' : 'Proses'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="py-20 text-center flex flex-col items-center justify-center">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -284,17 +349,19 @@ const ClientWalletView = () => {
       {/* Quick Actions */}
       <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
         <button 
-          onClick={() => window.location.href = '/client/orders'}
+          onClick={() => navigate('/client/orders')}
           className="bg-white border border-gray-200 rounded-xl p-3 text-center hover:shadow-md transition-all group"
         >
           <ShoppingBag className="w-5 h-5 text-gray-400 mx-auto mb-1 group-hover:text-emerald-500" />
           <p className="text-xs font-bold text-gray-600">Pesanan Saya</p>
         </button>
         <button 
-          onClick={() => window.location.href = '/client/messages'}
+          onClick={() => navigate('/client/messages')}
           className="bg-white border border-gray-200 rounded-xl p-3 text-center hover:shadow-md transition-all group"
         >
-          <MessageCircle className="w-5 h-5 text-gray-400 mx-auto mb-1 group-hover:text-emerald-500" />
+          <svg className="w-5 h-5 text-gray-400 mx-auto mb-1 group-hover:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
           <p className="text-xs font-bold text-gray-600">Pesan</p>
         </button>
         <button 
@@ -305,35 +372,18 @@ const ClientWalletView = () => {
           <p className="text-xs font-bold text-gray-600">Top Up</p>
         </button>
         <button 
-          onClick={() => window.location.href = '/client/settings'}
+          onClick={() => navigate('/client/settings')}
           className="bg-white border border-gray-200 rounded-xl p-3 text-center hover:shadow-md transition-all group"
         >
-          <Settings className="w-5 h-5 text-gray-400 mx-auto mb-1 group-hover:text-emerald-500" />
+          <svg className="w-5 h-5 text-gray-400 mx-auto mb-1 group-hover:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
           <p className="text-xs font-bold text-gray-600">Pengaturan</p>
         </button>
       </div>
     </div>
   );
 };
-
-// Additional icons
-const Shield = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-  </svg>
-);
-
-const MessageCircle = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-  </svg>
-);
-
-const Settings = ({ className }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-  </svg>
-);
 
 export default ClientWalletView;

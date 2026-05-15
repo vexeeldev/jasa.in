@@ -15,7 +15,16 @@ import UserProfileView from './freelancer/views/UserProfileView';
 import SettingsView from './freelancer/views/SettingsView';
 import WalletView from './freelancer/views/WalletView';
 import FreelancerDeliverView from './freelancer/views/FreelancerDeliverView';
-
+import CreateServiceView from './freelancer/views/CreateServiceView';
+import FreelancerServicesView from './freelancer/views/FreelancerServicesView';
+import FreelancerServiceDetailView from './freelancer/views/FreelancerServiceDetailView';
+import FreelancerServiceEditView from './freelancer/views/FreelancerServiceEditView';
+import FreelancerPortfoliosView from './freelancer/views/FreelancerPortfoliosView';
+import FreelancerPortfolioCreateView from './freelancer/views/FreelancerPortfolioCreateView';
+import FreelancerPortfolioEditView from './freelancer/views/FreelancerPortfolioEditView';
+import FreelancerPortfolioDetailView from './freelancer/views/FreelancerPortfolioDetailView';
+import FreelancerDashboardView from './freelancer/views/FreelancerDashboardView';
+import FreelancerNotificationsView from './freelancer/views/FreelancerNotificationsView';
 // ============================================
 // CLIENT VIEWS
 // ============================================
@@ -32,8 +41,9 @@ import ClientWalletView from './client/views/WalletView';
 import PaymentInstructionView from './client/views/PaymentInstructionView';
 import PaymentPage from './client/views/PaymentPage';
 import ClientDirectChatView from './client/views/ClientDirectChatView';
-
-
+import ClientDashboardView from './client/views/ClientDashboardView';
+import ClientWishlistView from './client/views/ClientWishlistView';
+import ClientNotificationsView from './client/views/ClientNotificationsView';
 // ============================================
 // AUTH & LANDING
 // ============================================
@@ -47,6 +57,8 @@ import Landing from './freelancer/pages/Landing';
 import FreelancerHeader from './freelancer/components/layout/Header';
 import FreelancerFooter from './freelancer/components/layout/Footer';
 import ClientHeader from './client/components/layout/ClientHeader';
+
+import PublicProfileView from './PublicProfileView';
 
 // ============================================
 // AUTH CONTEXT
@@ -180,6 +192,8 @@ const AppContent = () => {
     return <Navigate to="/login" replace />;
   }
 
+  
+
   console.log('Current user role:', currentUser.ROLE || currentUser.role);
   console.log('Is client?', isClient(currentUser.ROLE || currentUser.role));
 
@@ -199,12 +213,15 @@ const AppContent = () => {
           <Route path="/client/order-track/:id" element={<ClientOrderTrackView />} />
           <Route path="/client/messages" element={<ClientMessagesView />} />
           <Route path="/client/profile" element={<ClientProfileView />} />
-          <Route path="/client/profile/:id" element={<ClientProfileView />} />
+          <Route path="/client/profile/me" element={<ClientProfileView />} />
           <Route path="/client/settings" element={<ClientSettingsView />} />
           <Route path="/client/wallet" element={<ClientWalletView />} />
           <Route path="/client/payment-instruction" element={<PaymentInstructionView />} />
           <Route path="/client/direct-chat/:sellerId" element={<ClientDirectChatView />} />
-
+          <Route path="/client/dash" element={<ClientDashboardView />} />
+          <Route path="/client/wishlist" element={<ClientWishlistView />} />
+          <Route path="/client/notifications" element={<ClientNotificationsView />} />
+          <Route path="/client/profile/:userId" element={<PublicProfileView />} />
           <Route path="*" element={<Navigate to="/client" replace />} />
         </Routes>
       </ClientLayout>
@@ -225,10 +242,21 @@ const AppContent = () => {
         <Route path="/orders" element={<UnifiedOrdersView />} />
         <Route path="/order-track/:id" element={<OrderTrackView />} />
         <Route path="/messages" element={<MessagesView />} />
-        <Route path="/profile/:id" element={<UserProfileView />} />
+        <Route path="/profile/me" element={<UserProfileView />} />
         <Route path="/settings" element={<SettingsView />} />
         <Route path="/freelancer/deliver/:id" element={<FreelancerDeliverView />} />
-        
+        <Route path="/freelancer/services" element={<FreelancerServicesView />} />
+        <Route path="/freelancer/services/create" element={<CreateServiceView />} />
+        <Route path="/freelancer/service/:id" element={<FreelancerServiceDetailView />} />
+        <Route path="/freelancer/services/edit/:id" element={<FreelancerServiceEditView />} />
+        <Route path="/freelancer/portfolios" element={<FreelancerPortfoliosView />} />
+        <Route path="/freelancer/portfolios/create" element={<FreelancerPortfolioCreateView />} />
+        <Route path="/freelancer/portfolios/edit/:id" element={<FreelancerPortfolioEditView />} />
+        <Route path="/freelancer/portfolios/:id" element={<FreelancerPortfolioDetailView />} />
+        <Route path="/freelancer/dashboard" element={<FreelancerDashboardView />} />
+        <Route path="/freelancer/notifications" element={<FreelancerNotificationsView />} />
+        <Route path="/client/profile/:userId" element={<PublicProfileView />} />
+
         <Route path="*" element={<HomeView />} />
       </Routes>
     </FreelancerLayout>

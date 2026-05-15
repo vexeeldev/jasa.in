@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const http = require('http'); // 🔥 TAMBAHKAN
+const socketIo = require('socket.io'); // 🔥 TAMBAHKAN
 const db = require('./config/db');
 const { getConnection } = db;
 const path = require('path');
@@ -11,6 +13,59 @@ const apiRoutes = require('./routes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// 🔥 BUAT HTTP SERVER
+const server = http.createServer(app);
+
+// 🔥 INIT SOCKET.IO
+const io = socketIo(server, {
+  cors: {
+    origin: "http://localhost:5173", // Sesuaikan dengan port frontend Anda
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// 🔥 SIMPAN SOCKET PER USER
+const userSockets = new Map();
+
+// 🔥 SOCKET.IO CONNECTION HANDLER
+io.on('connection', (socket) => {
+  console.log('🔌 New client connected:', socket.id);
+  
+  // Register user ID
+  socket.on('register', (userId) => {
+    if (userId) {
+      userSockets.set(userId, socket.id);
+      console.log(`✅ User ${userId} registered with socket ${socket.id}`);
+      console.log(`📊 Active users: ${userSockets.size}`);
+    }
+  });
+  
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    for (let [userId, socketId] of userSockets.entries()) {
+      if (socketId === socket.id) {
+        userSockets.delete(userId);
+        console.log(`❌ User ${userId} disconnected`);
+        break;
+      }
+    }
+    console.log(`📊 Active users: ${userSockets.size}`);
+  });
+});
+
+// 🔥 FUNGSI GLOBAL UNTUK MENGIRIM NOTIFIKASI REALTIME
+global.sendNotificationToUser = (userId, notification) => {
+  const socketId = userSockets.get(userId);
+  if (socketId) {
+    io.to(socketId).emit('new_notification', notification);
+    console.log(`📨 Notification sent to user ${userId}: ${notification.title}`);
+    return true;
+  }
+  console.log(`⚠️ User ${userId} not connected, notification saved to DB only`);
+  return false;
+};
+
 // =====================
 // MIDDLEWARE
 // =====================
@@ -20,8 +75,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+require('./scheduler');
 
 // =====================
 // ROUTES
@@ -66,12 +120,10 @@ app.get('/client/pay/:token', async (req, res) => {
     
     const status = result.rows[0].STATUS;
     
-    // Jika sudah bukan waiting_payment, redirect
     if (status !== 'waiting_payment') {
       return res.redirect('/client/orders');
     }
     
-    // Kirim file HTML
     const htmlPath = path.join(__dirname, 'views', 'payment.html');
     console.log('📄 Serving HTML from:', htmlPath);
     res.sendFile(htmlPath);
@@ -89,13 +141,78 @@ app.get('/client/pay/:token', async (req, res) => {
   }
 });
 
-
 app.post('/api/payments/payment-confirm/:token', (req, res) => {
-  // panggil langsung controller
   const paymentController = require('./controllers/paymentController');
   paymentController.confirmPayment(req, res);
 });
-// Gunakan routes/index.js untuk semua API
+
+// =====================
+// 🔥 ROUTE UPLOAD KHUSUS - TANPA BODY PARSER
+// =====================
+const multer = require('multer');
+const fs = require('fs');
+
+const servicesUploadDir = 'uploads/services';
+if (!fs.existsSync(servicesUploadDir)) {
+  fs.mkdirSync(servicesUploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, './uploads/services/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'service-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) {
+      cb(null, true);
+    } else {
+      cb(new Error('Hanya file gambar yang diperbolehkan'));
+    }
+  }
+});
+
+app.post('/api/services/upload-thumbnail', (req, res, next) => {
+  next();
+}, (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      console.error('❌ Multer error:', err);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Tidak ada file' });
+    }
+    
+    console.log('✅ File uploaded:', req.file.filename);
+    
+    res.json({
+      success: true,
+      data: { url: `/uploads/services/${req.file.filename}` }
+    });
+  });
+});
+
+// =====================
+// BODY PARSER UNTUK ROUTE LAIN
+// =====================
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// =====================
+// API ROUTES LAINNYA
+// =====================
 app.use('/api', apiRoutes);
 
 // =====================
@@ -115,7 +232,6 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
 
-  // JWT Errors
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({ 
       success: false, 
@@ -141,7 +257,8 @@ app.use((err, req, res, next) => {
 // =====================
 db.initialize()
   .then(() => {
-    app.listen(PORT, () => {
+    // 🔥 GUNAKAN server.listen BUKAN app.listen
+    server.listen(PORT, () => {
       console.log(`
 ╔══════════════════════════════════════════════════╗
 ║                                                  ║
@@ -149,6 +266,7 @@ db.initialize()
 ║                                                  ║
 ║   📡 Port: http://localhost:${PORT}              ║
 ║   📚 API: http://localhost:${PORT}/api           ║
+║   🔌 WebSocket: ws://localhost:${PORT}           ║
 ║                                                  ║
 ║   ✅ Database connected                         ║
 ║                                                  ║
@@ -160,11 +278,13 @@ db.initialize()
 ║   POST   /api/auth/register                     ║
 ║   GET    /api/users/me                          ║
 ║   GET    /api/services                          ║
+║   POST   /api/services/upload-thumbnail         ║
 ║   GET    /api/categories                        ║
 ║   GET    /api/orders                            ║
 ║   GET    /api/payments/balance                  ║
 ║   GET    /api/messages/chats                    ║
 ║   GET    /api/notifications                     ║
+║   🔌 WebSocket realtime notifications           ║
 ║                                                  ║
 ╚══════════════════════════════════════════════════╝
       `);
@@ -180,6 +300,12 @@ db.initialize()
 // =====================
 const shutdown = async () => {
   console.log('\n🛑 Shutting down...');
+  
+  // Tutup semua koneksi socket
+  io.close(() => {
+    console.log('✅ Socket.io closed');
+  });
+  
   await db.closePool();
   console.log('✅ Database pool closed');
   process.exit(0);

@@ -120,52 +120,125 @@ exports.getMyFullProfile = async (req, res) => {
 /**
  * PUT: Update Profil
  */
+// ================= UPDATE PROFILE =================
 exports.updateProfile = async (req, res) => {
+  let connection;
+  try {
+    const { full_name, phone, bio } = req.body;
+    const userId = req.user.user_id;
+    
+    connection = await getConnection();
+    
+    await connection.execute(
+      `UPDATE USERS 
+       SET full_name = :full_name,
+           phone = :phone,
+           bio = :bio
+       WHERE user_id = :userId`,
+      { 
+        full_name: full_name || null,
+        phone: phone || null,
+        bio: bio || null,
+        userId 
+      }
+    );
+    
+    // Update bio di freelancer_profiles jika user adalah freelancer
+    const userRole = await connection.execute(
+      `SELECT role FROM USERS WHERE user_id = :userId`,
+      { userId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    if (userRole.rows[0]?.ROLE === 'freelancer') {
+      await connection.execute(
+        `UPDATE FREELANCER_PROFILES 
+         SET bio = :bio 
+         WHERE user_id = :userId`,
+        { bio: bio || null, userId }
+      );
+    }
+    
+    await connection.commit();
+    
+    res.json({
+      success: true,
+      message: 'Profil berhasil diperbarui'
+    });
+    
+  } catch (err) {
+    if (connection) await connection.rollback();
+    console.error('UPDATE PROFILE ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+
+// ================= UPLOAD AVATAR =================
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'uploads/avatars';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadAvatar = multer({ 
+  storage: avatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp/;
+    const extname = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowed.test(file.mimetype);
+    if (mimetype && extname) return cb(null, true);
+    cb(new Error('Hanya file gambar yang diperbolehkan'));
+  }
+});
+
+exports.uploadAvatar = (req, res) => {
+  uploadAvatar.single('avatar')(req, res, async (err) => {
     let connection;
     try {
-        const userId = req.user.user_id;
-        const { full_name, phone, bio, avatar_url } = req.body;
-
-        connection = await db.getConnection();
-
-        // 1. Update USERS
-        await connection.execute(
-            `UPDATE USERS 
-             SET full_name = :full_name, 
-                 phone = :phone, 
-                 avatar_url = :avatar_url 
-             WHERE user_id = :id`,
-            { full_name, phone, avatar_url, id: userId },
-            { autoCommit: false }
-        );
-
-        // 2. MERGE FREELANCER_PROFILES
-        await connection.execute(
-            `MERGE INTO FREELANCER_PROFILES fp
-             USING (SELECT :id as user_id FROM DUAL) src
-             ON (fp.user_id = src.user_id)
-             WHEN MATCHED THEN
-                UPDATE SET bio = :bio
-             WHEN NOT MATCHED THEN
-                INSERT (user_id, bio) VALUES (:id, :bio)`,
-            { id: userId, bio: bio || '' },
-            { autoCommit: false }
-        );
-
-        await connection.commit();
-
-        return res.json({
-            success: true,
-            message: 'Profil berhasil diperbarui!'
-        });
-
-    } catch (err) {
-        if (connection) await connection.rollback();
-        console.error('Update Error:', err.message);
-        return res.status(500).json({ success: false, message: 'Gagal memperbarui profil' });
+      if (err) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'File tidak ditemukan' });
+      }
+      
+      const userId = req.user.user_id;
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      
+      connection = await getConnection();
+      
+      await connection.execute(
+        `UPDATE USERS SET avatar_url = :avatarUrl WHERE user_id = :userId`,
+        { avatarUrl, userId }
+      );
+      
+      await connection.commit();
+      
+      res.json({
+        success: true,
+        message: 'Avatar berhasil diupload',
+        data: { avatar_url: avatarUrl }
+      });
+      
+    } catch (error) {
+      if (connection) await connection.rollback();
+      console.error('UPLOAD AVATAR ERROR:', error);
+      res.status(500).json({ success: false, message: 'Server error' });
     } finally {
-        if (connection) {
-            try { await connection.close(); } catch (e) {}
-        }
+      if (connection) await connection.close();
     }
+  });
 };

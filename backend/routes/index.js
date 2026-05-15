@@ -15,6 +15,7 @@ const notificationRoutes = require('./notificationRoutes');
 const portfolioRoutes = require('./portfolioRoutes');
 const skillRoutes = require('./skillRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
+const walletRoutes = require('./walletRoutes');
 
 // Register all routes
 router.use('/auth', authRoutes);
@@ -30,6 +31,7 @@ router.use('/notifications', notificationRoutes);
 router.use('/portfolios', portfolioRoutes);
 router.use('/skills', skillRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/wallet', walletRoutes); 
 
 // Health check
 router.get('/health', (req, res) => {

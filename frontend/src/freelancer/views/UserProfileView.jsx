@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom'; // 🔥 TAMBAHKAN useParams
 import { Star } from 'lucide-react';
 import Avatar from '../components/ui/Avatar';
 import Badge from '../components/ui/Badge';
@@ -6,28 +7,40 @@ import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import RatingStars from '../components/ui/RatingStars';
 
-const UserProfileView = ({ navigate, viewParams }) => {
+const API_BASE_URL = 'http://localhost:5000/api';
+const STATIC_URL = 'http://localhost:5000';
+
+const UserProfileView = () => { // 🔥 HAPUS props navigate, viewParams
+  const navigate = useNavigate(); // 🔥 TAMBAHKAN
+  const { userId } = useParams(); // 🔥 TAMBAHKAN untuk ambil ID dari URL
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const getFullImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return `${STATIC_URL}${url}`;
+    return `${STATIC_URL}/${url}`;
+  };
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       const token = localStorage.getItem('token');
       
-      if (!token) {
-        setError('Silakan login terlebih dahulu');
-        setLoading(false);
-        return;
+      // 🔥 Jika ada userId di URL, ambil profile user lain, tapi untuk sementara pakai /me
+      // Karena backend mungkin belum punya endpoint public /users/:id
+      const url = userId ? `${API_BASE_URL}/users/${userId}` : `${API_BASE_URL}/users/me`;
+      
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       try {
-        const response = await fetch('http://localhost:5000/api/users/me', {
+        const response = await fetch(url, {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers: headers,
         });
 
         const result = await response.json();
@@ -46,9 +59,8 @@ const UserProfileView = ({ navigate, viewParams }) => {
     };
 
     fetchUserProfile();
-  }, []);
+  }, [userId]); // 🔥 TAMBAHKAN dependency userId
 
-  // Helper function untuk format currency
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -91,7 +103,6 @@ const UserProfileView = ({ navigate, viewParams }) => {
     total_reviews_given
   } = userData;
 
-  // Menyusun data user untuk ditampilkan
   const user = {
     user_id: user_id,
     username: username,
@@ -100,12 +111,11 @@ const UserProfileView = ({ navigate, viewParams }) => {
     phone: phone,
     avatar_url: avatar_url,
     role: role,
-    location: 'Indonesia', // Default karena tidak ada di API
-    is_verified: '0', // Default karena tidak ada di API
+    location: 'Indonesia',
+    is_verified: '0',
     created_at: created_at
   };
 
-  // Menyusun data profile untuk ditampilkan
   const profile = {
     profile_id: freelancer?.freelancer_id || user_id,
     bio: freelancer?.bio || 'Belum ada deskripsi',
@@ -117,10 +127,8 @@ const UserProfileView = ({ navigate, viewParams }) => {
     balance: balance || 0
   };
 
-  // Map skills dari format API
   const userSkills = skills.map(skill => skill.name);
   
-  // Map portfolios dari format API
   const userPortfolios = portfolios.map(portfolio => ({
     portfolio_id: portfolio.portfolio_id,
     title: portfolio.title,
@@ -128,10 +136,8 @@ const UserProfileView = ({ navigate, viewParams }) => {
     image_url: portfolio.image_url
   }));
 
-  // Services tidak ada di response API, jadi array kosong
   const userServices = [];
 
-  // Tentukan badge variant berdasarkan level
   const getBadgeVariant = () => {
     if (profile.level === 'top') return 'purple';
     if (profile.level === 'pro') return 'success';
@@ -153,7 +159,7 @@ const UserProfileView = ({ navigate, viewParams }) => {
           <Card className="text-center sticky top-28">
             <div className="relative inline-block mb-4">
               <Avatar 
-                src={avatar_url || `https://ui-avatars.com/api/?name=${full_name}&background=random`} 
+                src={getFullImageUrl(avatar_url) || `https://ui-avatars.com/api/?name=${full_name}&background=random`} 
                 size="xl" 
                 verified={user.is_verified === '1'} 
               />
@@ -199,7 +205,7 @@ const UserProfileView = ({ navigate, viewParams }) => {
               </div>
             </div>
 
-            <Button fullWidth className="mt-6" onClick={() => navigate('messages')}>
+            <Button fullWidth className="mt-6" onClick={() => navigate('/messages')}>
               Hubungi Saya
             </Button>
           </Card>
@@ -236,11 +242,11 @@ const UserProfileView = ({ navigate, viewParams }) => {
                   <div 
                     key={service.service_id} 
                     className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer flex flex-col" 
-                    onClick={() => navigate('service-detail', { id: service.service_id })}
+                    onClick={() => navigate(`/service/${service.service_id}`)}
                   >
                     <div className="h-40 bg-gray-100 overflow-hidden">
                       <img 
-                        src={service.thumbnail_url || 'https://via.placeholder.com/300x200'} 
+                        src={getFullImageUrl(service.thumbnail_url) || 'https://via.placeholder.com/300x200'} 
                         className="w-full h-full object-cover" 
                         alt={service.title} 
                       />
@@ -263,6 +269,7 @@ const UserProfileView = ({ navigate, viewParams }) => {
             </div>
           )}
 
+          {/* Portfolio Section */}
           {userPortfolios.length > 0 && (
             <div>
               <h2 className="text-2xl font-black text-gray-900 mb-6">Portofolio Pekerjaan</h2>
@@ -273,9 +280,12 @@ const UserProfileView = ({ navigate, viewParams }) => {
                     className="group relative rounded-xl overflow-hidden border border-gray-200 shadow-sm cursor-pointer h-64"
                   >
                     <img 
-                      src={port.image_url} 
+                      src={getFullImageUrl(port.image_url) || 'https://placehold.co/400x300?text=No+Image'}
                       alt={port.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      onError={(e) => {
+                        e.target.src = 'https://placehold.co/400x300?text=No+Image';
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-80 group-hover:opacity-100 transition-opacity"></div>
                     <div className="absolute bottom-0 left-0 p-5 w-full">

@@ -18,6 +18,8 @@ router.get('/me', userController.getProfile);
 // Update my profile
 router.put('/profile', userController.updateProfile);
 
+
+
 // Update avatar (upload file)
 router.post('/avatar', upload.single('avatar'), userController.updateAvatar);
 

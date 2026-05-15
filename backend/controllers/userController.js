@@ -80,11 +80,12 @@ exports.getProfile = async (req, res) => {
         : null,
       freelancer: null,
       skills: [],
-      portfolios: []
+      portfolios: [],
+      services: [] // 🔥 TAMBAHKAN INI
     };
 
     // =========================
-    // Jika freelancer, ambil data freelancer + skills + portfolios
+    // Jika freelancer, ambil data freelancer + skills + portfolios + services
     // =========================
     if (userData.role === 'freelancer') {
       const fpResult = await connection.execute(
@@ -149,6 +150,33 @@ exports.getProfile = async (req, res) => {
           project_url: String(portfolio.PROJECT_URL || ''),
           created_at: portfolio.CREATED_AT
             ? new Date(portfolio.CREATED_AT).toISOString()
+            : null
+        }));
+
+        // 🔥 =========================
+        // 🔥 Ambil SERVICES freelancer
+        // 🔥 =========================
+        const servicesResult = await connection.execute(
+          `SELECT s.service_id, s.title, s.description, s.thumbnail_url, 
+                  s.total_orders, s.status, s.created_at,
+                  (SELECT MIN(price) FROM SERVICE_PACKAGES WHERE service_id = s.service_id) as min_price
+           FROM SERVICES s
+           WHERE s.freelancer_id = :freelancerId AND s.status = 'active'
+           ORDER BY s.created_at DESC`,
+          { freelancerId: fp.FREELANCER_ID },
+          { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+
+        userData.services = servicesResult.rows.map(service => ({
+          service_id: Number(service.SERVICE_ID),
+          title: String(service.TITLE || ''),
+          description: String(service.DESCRIPTION || ''),
+          thumbnail_url: String(service.THUMBNAIL_URL || ''),
+          total_orders: Number(service.TOTAL_ORDERS || 0),
+          min_price: Number(service.MIN_PRICE || 0),
+          status: String(service.STATUS || 'active'),
+          created_at: service.CREATED_AT
+            ? new Date(service.CREATED_AT).toISOString()
             : null
         }));
       }
@@ -575,6 +603,54 @@ exports.deleteUser = async (req, res) => {
   } catch (err) {
     if (connection) await connection.rollback();
     console.error('DELETE USER ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    if (connection) await connection.close();
+  }
+};
+// ================= GET USER BY ID (PUBLIC) =================
+exports.getUserById = async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    
+    connection = await getConnection();
+    
+    const result = await connection.execute(
+      `SELECT user_id, username, full_name, email, avatar_url, role, bio, location, created_at
+       FROM USERS
+       WHERE user_id = :id`,
+      { id },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+    }
+    
+    const user = result.rows[0];
+    
+    // Jika freelancer, ambil data freelancer juga
+    if (user.ROLE === 'freelancer') {
+      const freelancerResult = await connection.execute(
+        `SELECT freelancer_id, bio, rating_avg, total_orders, freelancer_level
+         FROM FREELANCER_PROFILES
+         WHERE user_id = :userId`,
+        { userId: id },
+        { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      );
+      if (freelancerResult.rows.length > 0) {
+        user.freelancer = freelancerResult.rows[0];
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: user
+    });
+    
+  } catch (err) {
+    console.error('GET USER BY ID ERROR:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   } finally {
     if (connection) await connection.close();

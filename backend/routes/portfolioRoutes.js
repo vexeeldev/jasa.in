@@ -25,7 +25,7 @@ router.get('/my/portfolios', isFreelancer, portfolioController.getMyPortfolios);
 router.post('/', isFreelancer, portfolioController.createPortfolio);
 
 // Upload portfolio image
-router.post('/upload', isFreelancer, upload.single('image'), portfolioController.uploadPortfolioImage);
+router.post('/upload', isFreelancer, upload.single('portfolio'), portfolioController.uploadPortfolioImage);
 
 // Update portfolio
 router.put('/:id', isFreelancer, portfolioController.updatePortfolio);

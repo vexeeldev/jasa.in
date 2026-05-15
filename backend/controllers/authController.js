@@ -210,46 +210,73 @@ exports.logout = (req, res) => {
 };
 
 // ================= CHANGE PASSWORD =================
+// ================= CHANGE PASSWORD =================
 exports.changePassword = async (req, res) => {
   let connection;
   try {
     const { current_password, new_password } = req.body;
     const userId = req.user.user_id;
-
+    
     if (!current_password || !new_password) {
-      return res.status(400).json({ success: false, message: 'Password wajib diisi' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Password lama dan baru wajib diisi' 
+      });
     }
-
+    
     if (new_password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password minimal 6 karakter' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Password baru minimal 6 karakter' 
+      });
     }
-
+    
     connection = await getConnection();
-
+    
+    // 🔥 Cek dulu kolom apa yang ada di tabel USERS
+    // Jalankan query ini sekali di database: SELECT COLUMN_NAME FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'USERS';
+    
+    // Opsi 1: Jika kolom bernama 'PASS' atau 'PASSWORD_HASH'
     const userResult = await connection.execute(
-      `SELECT password_hash FROM USERS WHERE user_id = :userId`,
-      { userId }
+      `SELECT u.password_hash as password FROM USERS u WHERE u.user_id = :userId`,
+      // atau `SELECT u.pass as password FROM USERS u WHERE u.user_id = :userId`
+      { userId },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
-
-    const isValid = await bcrypt.compare(current_password, userResult.rows[0].PASSWORD_HASH);
-    if (!isValid) {
-      return res.status(401).json({ success: false, message: 'Password saat ini salah' });
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
     }
-
+    
+    const isValid = await bcrypt.compare(current_password, userResult.rows[0].PASSWORD);
+    
+    if (!isValid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Password lama salah' 
+      });
+    }
+    
     const hashedPassword = await bcrypt.hash(new_password, 10);
+    
+    // 🔥 Sesuaikan nama kolom dengan yang ada di tabel
     await connection.execute(
-      `UPDATE USERS SET password_hash = :hashedPassword WHERE user_id = :userId`,
-      { hashedPassword, userId }
+      `UPDATE USERS SET password_hash = :password WHERE user_id = :userId`,
+      // atau `UPDATE USERS SET pass = :password WHERE user_id = :userId`
+      { password: hashedPassword, userId }
     );
-
+    
     await connection.commit();
-
-    res.json({ success: true, message: 'Password berhasil diubah' });
-
+    
+    res.json({
+      success: true,
+      message: 'Password berhasil diubah'
+    });
+    
   } catch (err) {
     if (connection) await connection.rollback();
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('CHANGE PASSWORD ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error: ' + err.message });
   } finally {
     if (connection) await connection.close();
   }

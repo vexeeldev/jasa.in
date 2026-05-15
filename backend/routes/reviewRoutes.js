@@ -13,10 +13,17 @@ router.get('/freelancer/:freelancerId', reviewController.getReviewsByFreelancer)
 
 // Get review statistics
 router.get('/stats', reviewController.getReviewStats);
+// Get review by order ID (untuk freelancer lihat review dari client)
+router.get('/order/:orderId', authMiddleware, reviewController.getReviewByOrderId);
+
+router.get('/by-user/:userId', reviewController.getReviewsByUser);
+
 
 // ================= PROTECTED ROUTES =================
 router.use(authMiddleware);
 
+// Get review by order ID (untuk freelancer lihat review dari client)
+router.get('/order/:orderId', authMiddleware, reviewController.getReviewByOrderId);
 // Client only
 router.post('/order/:orderId', isClient, reviewController.createReview);
 router.get('/check/:orderId', isClient, reviewController.canReview);
